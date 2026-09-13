@@ -1,4 +1,5 @@
 import type { Tile } from '../hooks/useFleet'
+import { Sparkline } from './Sparkline'
 import { categoryLabel, formatValue } from '../lib/format'
 import './HeartbeatWall.css'
 
@@ -49,6 +50,8 @@ function SensorTile({ tile }: { tile: Tile }) {
       </div>
 
       <div className="tile__value mono">{formatValue(tile.value, tile.category)}</div>
+
+      <Sparkline values={tile.history} category={tile.category} />
 
       <div className="tile__meta">
         <span>{categoryLabel(tile.category)}</span>

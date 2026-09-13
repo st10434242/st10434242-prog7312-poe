@@ -3,6 +3,9 @@ import { api } from '../api/client'
 import type { LivenessState, SensorCategory, SensorValue, ThresholdBand } from '../api/types'
 import { useTelemetryHub, type HubStatus } from './useTelemetryHub'
 
+// Roughly a tile's width in points, past which older readings are not worth drawing
+const HISTORY_POINTS = 40
+
 export interface Tile {
   nodeId: string
   location: string
@@ -12,6 +15,7 @@ export interface Tile {
   band: ThresholdBand
   liveness: LivenessState
   lastSeenUtc: string | null
+  history: number[]
 }
 
 interface Fleet {
@@ -27,11 +31,18 @@ export function useFleet(): Fleet {
   const [error, setError] = useState<string | null>(null)
 
   const pending = useRef(new Map<string, Partial<Tile>>())
+  const pendingHistory = useRef(new Map<string, number[]>())
 
   useEffect(() => {
+    let cancelled = false
+
     api
       .getSensors()
-      .then((sensors) =>
+      .then((sensors) => {
+        if (cancelled) {
+          return
+        }
+
         setTiles(
           new Map(
             sensors.map((sensor) => [
@@ -45,13 +56,52 @@ export function useFleet(): Fleet {
                 band: 'Normal' as ThresholdBand,
                 liveness: sensor.liveness,
                 lastSeenUtc: sensor.lastSeenUtc,
+                history: [],
               },
             ]),
           ),
-        ),
-      )
-      .catch((problem: Error) => setError(problem.message))
-      .finally(() => setLoading(false))
+        )
+
+        // Seeded from the gateway's ring buffer so tiles have a baseline immediately, rather
+        // than waiting the best part of a minute for one to accumulate from the live stream
+        sensors.forEach((sensor) => {
+          api
+            .getHistory(sensor.nodeId)
+            .then((history) => {
+              if (cancelled) {
+                return
+              }
+
+              const values = history.readings.map((reading) => toNumber(reading.value))
+
+              setTiles((previous) => {
+                const tile = previous.get(sensor.nodeId)
+
+                if (!tile) {
+                  return previous
+                }
+
+                const next = new Map(previous)
+                next.set(sensor.nodeId, {
+                  ...tile,
+                  history: values.slice(-HISTORY_POINTS),
+                  value: history.readings.at(-1)?.value ?? tile.value,
+                })
+
+                return next
+              })
+            })
+            .catch(() => {
+              // A node with no readings yet is normal, its tile just starts empty
+            })
+        })
+      })
+      .catch((problem: Error) => !cancelled && setError(problem.message))
+      .finally(() => !cancelled && setLoading(false))
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Readings arrive faster than anyone can read them, so they are merged and flushed on a timer
@@ -63,7 +113,9 @@ export function useFleet(): Fleet {
       }
 
       const updates = pending.current
+      const appended = pendingHistory.current
       pending.current = new Map()
+      pendingHistory.current = new Map()
 
       setTiles((previous) => {
         const next = new Map(previous)
@@ -71,9 +123,17 @@ export function useFleet(): Fleet {
         updates.forEach((patch, nodeId) => {
           const tile = next.get(nodeId)
 
-          if (tile) {
-            next.set(nodeId, { ...tile, ...patch })
+          if (!tile) {
+            return
           }
+
+          const incoming = appended.get(nodeId)
+
+          next.set(nodeId, {
+            ...tile,
+            ...patch,
+            history: incoming ? [...tile.history, ...incoming].slice(-HISTORY_POINTS) : tile.history,
+          })
         })
 
         return next
@@ -93,6 +153,11 @@ export function useFleet(): Fleet {
         liveness: 'Live',
         lastSeenUtc: event.timestampUtc,
       })
+
+      pendingHistory.current.set(event.nodeId, [
+        ...(pendingHistory.current.get(event.nodeId) ?? []),
+        toNumber(event.value),
+      ])
     },
     onLiveness: (event) => {
       pending.current.set(event.nodeId, {
@@ -104,4 +169,9 @@ export function useFleet(): Fleet {
   })
 
   return { tiles: [...tiles.values()], loading, error, status }
+}
+
+// Valve states plot as 0 and 1 so a boolean stream can share the sparkline
+function toNumber(value: SensorValue): number {
+  return typeof value === 'boolean' ? (value ? 1 : 0) : value
 }

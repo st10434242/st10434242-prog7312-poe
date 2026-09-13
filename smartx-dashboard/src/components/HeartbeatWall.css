@@ -179,3 +179,33 @@
     animation: none !important;
   }
 }
+
+.spark {
+  width: 100%;
+  height: 24px;
+  display: block;
+  color: var(--text-dim);
+}
+
+.spark polyline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark--empty {
+  height: 24px;
+  border-bottom: 1px dashed var(--border);
+}
+
+/* The line takes the band colour, so a spike is visible in the shape and the hue at once */
+.tile--caution .spark {
+  color: var(--caution);
+}
+
+.tile--alert .spark {
+  color: var(--alert);
+}
