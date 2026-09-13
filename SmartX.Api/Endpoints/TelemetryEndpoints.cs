@@ -11,48 +11,54 @@ public static class TelemetryEndpoints
         RouteGroupBuilder group = app.MapGroup("/api/telemetry").WithTags("Telemetry");
 
         group.MapPost("/", Ingest);
+        group.MapPost("/batch", IngestBatch);
         group.MapGet("/nodes", GetNodes);
         group.MapGet("/{nodeId}", GetHistory);
 
         return group;
     }
 
-    private static IResult Ingest(TelemetryPacketDto dto, TelemetryStore store)
+    private static IResult Ingest(TelemetryPacketDto dto, TelemetryStore store, SensorRegistry registry)
     {
-        Dictionary<string, string[]> errors = Validate(dto);
+        Dictionary<string, string[]> errors = Validate(dto, registry);
 
         if (errors.Count > 0)
         {
             return Results.ValidationProblem(errors);
         }
 
-        // The only place an untyped payload becomes a typed packet
-        switch (dto.ValueKind)
+        if (!TryStore(dto, store))
         {
-            case TelemetryValueKind.Float:
-                dto.TryReadFloat(out float floatValue);
-                store.Floats.Add(ToPacket(dto, floatValue));
-                break;
-
-            case TelemetryValueKind.Int:
-                dto.TryReadInt(out int intValue);
-                store.Ints.Add(ToPacket(dto, intValue));
-                break;
-
-            case TelemetryValueKind.Bool:
-                dto.TryReadBool(out bool boolValue);
-                store.Bools.Add(ToPacket(dto, boolValue));
-                break;
-
-            // Without this a kind with no case would fall through and still answer 202
-            default:
-                return Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    [nameof(dto.ValueKind)] = [$"Unsupported value kind '{dto.ValueKind}'."]
-                });
+            return Results.ValidationProblem(new Dictionary<string, string[]>
+            {
+                [nameof(dto.ValueKind)] = [$"Unsupported value kind '{dto.ValueKind}'."]
+            });
         }
 
         return Results.Accepted();
+    }
+
+    // One bad packet should not cost the whole batch, so each is judged on its own
+    private static IResult IngestBatch(
+        TelemetryPacketDto[] packets,
+        TelemetryStore store,
+        SensorRegistry registry)
+    {
+        int accepted = 0;
+
+        foreach (TelemetryPacketDto dto in packets)
+        {
+            if (Validate(dto, registry).Count == 0 && TryStore(dto, store))
+            {
+                accepted++;
+            }
+        }
+
+        return Results.Accepted(value: new BatchResultDto
+        {
+            Accepted = accepted,
+            Rejected = packets.Length - accepted
+        });
     }
 
     private static IResult GetNodes(TelemetryStore store)
@@ -67,28 +73,55 @@ public static class TelemetryEndpoints
         return Results.Ok(nodes.Order());
     }
 
-    private static IResult GetHistory(string nodeId, TelemetryStore store)
+    private static IResult GetHistory(string nodeId, TelemetryStore store, SensorRegistry registry)
     {
-        List<ReadingDto> readings =
-        [
-            .. store.Floats.GetRecent(nodeId).Select(ToReading),
-            .. store.Ints.GetRecent(nodeId).Select(ToReading),
-            .. store.Bools.GetRecent(nodeId).Select(ToReading)
-        ];
-
-        if (readings.Count == 0)
+        if (!registry.TryGet(nodeId, out SensorRegistration? registration))
         {
             return Results.NotFound();
         }
 
-        readings.Sort((a, b) => a.TimestampUtc.CompareTo(b.TimestampUtc));
+        // The registration says which typed store holds this node
+        IEnumerable<ReadingDto> readings = registration.Category switch
+        {
+            SensorCategory.Environmental => store.Floats.GetRecent(nodeId).Select(ToReading),
+            SensorCategory.PowerConsumption => store.Ints.GetRecent(nodeId).Select(ToReading),
+            SensorCategory.Actuator => store.Bools.GetRecent(nodeId).Select(ToReading),
+            _ => []
+        };
+
+        List<ReadingDto> ordered = [.. readings];
 
         return Results.Ok(new NodeHistoryDto
         {
             NodeId = nodeId,
-            Count = readings.Count,
-            Readings = readings
+            Count = ordered.Count,
+            Readings = ordered
         });
+    }
+
+    // The only place an untyped payload becomes a typed packet
+    private static bool TryStore(TelemetryPacketDto dto, TelemetryStore store)
+    {
+        switch (dto.ValueKind)
+        {
+            case TelemetryValueKind.Float:
+                dto.TryReadFloat(out float floatValue);
+                store.Floats.Add(ToPacket(dto, floatValue));
+                return true;
+
+            case TelemetryValueKind.Int:
+                dto.TryReadInt(out int intValue);
+                store.Ints.Add(ToPacket(dto, intValue));
+                return true;
+
+            case TelemetryValueKind.Bool:
+                dto.TryReadBool(out bool boolValue);
+                store.Bools.Add(ToPacket(dto, boolValue));
+                return true;
+
+            default:
+                return false;
+        }
     }
 
     private static TelemetryPacket<T> ToPacket<T>(TelemetryPacketDto dto, T value) where T : struct =>
@@ -98,37 +131,39 @@ public static class TelemetryEndpoints
         new() { TimestampUtc = packet.TimestampUtc, Value = packet.Value };
 
     // Minimal APIs do not validate automatically
-    private static Dictionary<string, string[]> Validate(TelemetryPacketDto dto)
+    private static Dictionary<string, string[]> Validate(TelemetryPacketDto dto, SensorRegistry registry)
     {
         Dictionary<string, string[]> errors = [];
 
         if (string.IsNullOrWhiteSpace(dto.NodeId))
         {
             errors[nameof(dto.NodeId)] = ["A node id is required."];
-        }
-
-        if (dto.Category == SensorCategory.Unspecified)
-        {
-            errors[nameof(dto.Category)] = ["A sensor category is required."];
-        }
-
-        if (dto.ValueKind == TelemetryValueKind.Unspecified)
-        {
-            errors[nameof(dto.ValueKind)] = ["A value kind is required."];
             return errors;
         }
 
-        if (!dto.HasConsistentValue())
+        // The registration is the authority now, not what the packet claims about itself
+        if (!registry.TryGet(dto.NodeId, out SensorRegistration? registration))
         {
-            errors[nameof(dto.Value)] = [$"The value cannot be read as {dto.ValueKind}."];
+            errors[nameof(dto.NodeId)] = [$"Node '{dto.NodeId}' is not registered."];
+            return errors;
         }
 
-        TelemetryValueKind expected = TelemetryPacketDto.ExpectedKindFor(dto.Category);
+        if (dto.Category != registration.Category)
+        {
+            errors[nameof(dto.Category)] =
+                [$"Node '{dto.NodeId}' is registered as {registration.Category}, not {dto.Category}."];
+        }
 
-        if (expected != TelemetryValueKind.Unspecified && dto.ValueKind != expected)
+        TelemetryValueKind expected = TelemetryPacketDto.ExpectedKindFor(registration.Category);
+
+        if (dto.ValueKind != expected)
         {
             errors[nameof(dto.ValueKind)] =
-                [$"A {dto.Category} sensor publishes {expected}, not {dto.ValueKind}."];
+                [$"A {registration.Category} sensor publishes {expected}, not {dto.ValueKind}."];
+        }
+        else if (!dto.HasConsistentValue())
+        {
+            errors[nameof(dto.Value)] = [$"The value cannot be read as {dto.ValueKind}."];
         }
 
         return errors;
