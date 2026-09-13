@@ -1,76 +1,138 @@
 @host = http://localhost:5225
 
-### Environmental reading, float
+### Health check
+GET {{host}}/health
+
+### 1. Register a power meter
+POST {{host}}/api/sensors
+Content-Type: application/json
+
+{
+  "nodeId": "METER-TEST",
+  "mac": "AA:BB:CC:DD:EE:01",
+  "location": "FacilityA/Zone1/SubZoneB",
+  "category": "PowerConsumption",
+  "expectedIntervalMs": 1000
+}
+
+### 2. Send a normal reading (expect 202)
 POST {{host}}/api/telemetry
 Content-Type: application/json
 
 {
-  "nodeId": "ESP32-7F2A",
+  "nodeId": "METER-TEST",
+  "timestampUtc": "2026-09-13T14:22:31Z",
+  "category": "PowerConsumption",
+  "valueKind": "Int",
+  "value": 500
+}
+
+### 3. Send a reading that crosses the alert band
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "METER-TEST",
+  "timestampUtc": "2026-09-13T14:22:32Z",
+  "category": "PowerConsumption",
+  "valueKind": "Int",
+  "value": 1200
+}
+
+### 4. Read the retained window back
+GET {{host}}/api/telemetry/METER-TEST
+
+### 5. The deployment tree with recursive rollups
+GET {{host}}/api/topology
+
+### 6. Every registered sensor
+GET {{host}}/api/sensors
+
+### 7. Silence a node, it goes stale within ~3 intervals
+POST {{host}}/api/debug/silence/METER-TEST
+
+### 8. Which nodes are currently silenced
+GET {{host}}/api/debug/silence
+
+### 9. Restore it
+DELETE {{host}}/api/debug/silence/METER-TEST
+
+###
+### Rejection cases
+###
+
+### Unregistered node (expect 400)
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "GHOST",
   "timestampUtc": "2026-09-13T14:22:31Z",
   "category": "Environmental",
   "valueKind": "Float",
   "value": 42.5
 }
 
-### Power reading, int
+### Wrong category for this node (expect 400)
 POST {{host}}/api/telemetry
 Content-Type: application/json
 
 {
-  "nodeId": "METER-01",
-  "timestampUtc": "2026-09-13T14:22:31Z",
+  "nodeId": "METER-TEST",
+  "timestampUtc": "2026-09-13T14:22:33Z",
+  "category": "Environmental",
+  "valueKind": "Float",
+  "value": 42.5
+}
+
+### Tagged Bool but carries a number (expect 400)
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "METER-TEST",
+  "timestampUtc": "2026-09-13T14:22:34Z",
   "category": "PowerConsumption",
-  "valueKind": "Int",
-  "value": 900
-}
-
-### Actuator reading, bool
-POST {{host}}/api/telemetry
-Content-Type: application/json
-
-{
-  "nodeId": "VALVE-03",
-  "timestampUtc": "2026-09-13T14:22:31Z",
-  "category": "Actuator",
-  "valueKind": "Bool",
-  "value": true
-}
-
-### Rejected, tagged Bool but carries a number
-POST {{host}}/api/telemetry
-Content-Type: application/json
-
-{
-  "nodeId": "VALVE-03",
-  "timestampUtc": "2026-09-13T14:22:31Z",
-  "category": "Actuator",
   "valueKind": "Bool",
   "value": 42
 }
 
-### Rejected, a power meter cannot publish a bool
-POST {{host}}/api/telemetry
+### Malformed MAC (expect 400)
+POST {{host}}/api/sensors
 Content-Type: application/json
 
 {
-  "nodeId": "METER-01",
-  "timestampUtc": "2026-09-13T14:22:31Z",
-  "category": "PowerConsumption",
-  "valueKind": "Bool",
-  "value": true
-}
-
-### Rejected, blank node id
-POST {{host}}/api/telemetry
-Content-Type: application/json
-
-{
-  "nodeId": "",
-  "timestampUtc": "2026-09-13T14:22:31Z",
+  "nodeId": "BAD-1",
+  "mac": "not-a-mac",
+  "location": "FacilityA/Zone1",
   "category": "Environmental",
-  "valueKind": "Float",
-  "value": 42.5
+  "expectedIntervalMs": 1000
 }
+
+### Duplicate MAC on a different node (expect 409)
+POST {{host}}/api/sensors
+Content-Type: application/json
+
+{
+  "nodeId": "BAD-2",
+  "mac": "AA:BB:CC:DD:EE:01",
+  "location": "FacilityA/Zone1",
+  "category": "Environmental",
+  "expectedIntervalMs": 1000
+}
+
+### Batch with 2 good and 1 unregistered (expect 202, accepted 2 rejected 1)
+POST {{host}}/api/telemetry/batch
+Content-Type: application/json
+
+[
+  { "nodeId": "METER-TEST", "timestampUtc": "2026-09-13T14:23:00Z", "category": "PowerConsumption", "valueKind": "Int", "value": 610 },
+  { "nodeId": "GHOST",      "timestampUtc": "2026-09-13T14:23:00Z", "category": "PowerConsumption", "valueKind": "Int", "value": 999 },
+  { "nodeId": "METER-TEST", "timestampUtc": "2026-09-13T14:23:01Z", "category": "PowerConsumption", "valueKind": "Int", "value": 625 }
+]
+
+### Clean up
+DELETE {{host}}/api/sensors/METER-TEST
 
 ### OpenAPI document
 GET {{host}}/openapi/v1.json
