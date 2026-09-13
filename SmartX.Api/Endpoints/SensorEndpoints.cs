@@ -17,7 +17,11 @@ public static class SensorEndpoints
         return group;
     }
 
-    private static IResult Register(SensorRegistrationDto dto, SensorRegistry registry)
+    private static IResult Register(
+        SensorRegistrationDto dto,
+        SensorRegistry registry,
+        NodeStateTracker tracker,
+        TelemetryStore store)
     {
         Dictionary<string, string[]> errors =
             Validate(dto, out MacAddress mac, out DeploymentPath location);
@@ -46,28 +50,37 @@ public static class SensorEndpoints
             return Results.Problem($"Node '{registration.NodeId}' is already registered.", statusCode: 409);
         }
 
-        return Results.Created($"/api/sensors/{registration.NodeId}", ToDto(registration));
+        return Results.Created($"/api/sensors/{registration.NodeId}", ToDto(registration, tracker, store));
     }
 
-    private static IResult GetAll(SensorRegistry registry) =>
-        Results.Ok(registry.All().Select(ToDto));
+    private static IResult GetAll(SensorRegistry registry, NodeStateTracker tracker, TelemetryStore store) =>
+        Results.Ok(registry.All().Select(sensor => ToDto(sensor, tracker, store)));
 
-    private static IResult GetOne(string nodeId, SensorRegistry registry) =>
+    private static IResult GetOne(
+        string nodeId,
+        SensorRegistry registry,
+        NodeStateTracker tracker,
+        TelemetryStore store) =>
         registry.TryGet(nodeId, out SensorRegistration? registration)
-            ? Results.Ok(ToDto(registration))
+            ? Results.Ok(ToDto(registration, tracker, store))
             : Results.NotFound();
 
     private static IResult Delete(string nodeId, SensorRegistry registry) =>
         registry.Remove(nodeId) ? Results.NoContent() : Results.NotFound();
 
-    private static SensorDto ToDto(SensorRegistration registration) => new()
+    private static SensorDto ToDto(
+        SensorRegistration registration,
+        NodeStateTracker tracker,
+        TelemetryStore store) => new()
     {
         NodeId = registration.NodeId,
         Mac = registration.Mac.ToString(),
         Location = registration.Location.ToString(),
         Category = registration.Category,
         ExpectedIntervalMs = (int)registration.ExpectedInterval.TotalMilliseconds,
-        RegisteredAtUtc = registration.RegisteredAtUtc
+        RegisteredAtUtc = registration.RegisteredAtUtc,
+        Liveness = tracker.Get(registration.NodeId),
+        LastSeenUtc = store.LastSeenUtc(registration)
     };
 
     // Out parameters so the parsed values can be reused instead of parsing twice

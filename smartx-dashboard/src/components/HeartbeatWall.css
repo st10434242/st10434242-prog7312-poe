@@ -108,3 +108,74 @@
   color: var(--alert);
   border-color: color-mix(in srgb, var(--alert) 40%, transparent);
 }
+
+/* The second encoding channel: opacity and pulse carry how recently the node reported.
+   Kept independent of hue so a spiking sensor and a silent one never look alike. */
+.tile--live {
+  opacity: 1;
+}
+
+.tile--dimmed {
+  opacity: 0.62;
+}
+
+.tile--stale {
+  opacity: 0.38;
+  border-style: dashed;
+  background: transparent;
+}
+
+.tile__pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--stale);
+}
+
+.tile--live .tile__pulse {
+  background: var(--normal);
+  animation: tile-pulse 2s ease-in-out infinite;
+}
+
+/* Slower, not faster, so a struggling node reads as fading rather than urgent */
+.tile--dimmed .tile__pulse {
+  background: var(--caution);
+  animation: tile-pulse 4s ease-in-out infinite;
+}
+
+.tile--stale .tile__pulse {
+  background: var(--stale);
+  animation: none;
+}
+
+.tile__head-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Text marker so a faded tile is still readable in greyscale or by a screen reader */
+.tile__stale-mark {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+@keyframes tile-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile__pulse {
+    animation: none !important;
+  }
+}

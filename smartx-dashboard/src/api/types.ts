@@ -15,6 +15,8 @@ export interface Sensor {
   category: SensorCategory
   expectedIntervalMs: number
   registeredAtUtc: string
+  liveness: LivenessState
+  lastSeenUtc: string | null
 }
 
 export interface SensorRegistration {

@@ -33,12 +33,19 @@ export function HeartbeatWall({ tiles, loading, error }: Props) {
 function SensorTile({ tile }: { tile: Tile }) {
   return (
     <article
-      className={`tile tile--${tile.band.toLowerCase()}`}
-      aria-label={`${tile.nodeId}, ${formatValue(tile.value, tile.category)}, ${tile.band}`}
+      className={`tile tile--${tile.band.toLowerCase()} tile--${tile.liveness.toLowerCase()}`}
+      aria-label={`${tile.nodeId}, ${formatValue(tile.value, tile.category)}, ${tile.band}, ${tile.liveness}`}
     >
       <div className="tile__head">
-        <span className="tile__id mono">{tile.nodeId}</span>
-        <span className="tile__band">{tile.band}</span>
+        <span className="tile__head-left">
+          <span className="tile__pulse" aria-hidden="true" />
+          <span className="tile__id mono">{tile.nodeId}</span>
+        </span>
+        {tile.liveness === 'Stale' ? (
+          <span className="tile__stale-mark">stale</span>
+        ) : (
+          <span className="tile__band">{tile.band}</span>
+        )}
       </div>
 
       <div className="tile__value mono">{formatValue(tile.value, tile.category)}</div>

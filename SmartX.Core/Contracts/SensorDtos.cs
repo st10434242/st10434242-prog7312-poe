@@ -27,6 +27,11 @@ public sealed record SensorDto
     public required int ExpectedIntervalMs { get; init; }
 
     public required DateTimeOffset RegisteredAtUtc { get; init; }
+
+    // Current state, so a dashboard connecting mid-flight knows which nodes are already quiet
+    public required LivenessState Liveness { get; init; }
+
+    public required DateTimeOffset? LastSeenUtc { get; init; }
 }
 
 public sealed record BatchResultDto
