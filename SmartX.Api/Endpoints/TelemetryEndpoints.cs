@@ -11,14 +11,14 @@ public static class TelemetryEndpoints
         RouteGroupBuilder group = app.MapGroup("/api/telemetry").WithTags("Telemetry");
 
         group.MapPost("/", Ingest);
+        group.MapGet("/nodes", GetNodes);
+        group.MapGet("/{nodeId}", GetHistory);
 
         return group;
     }
 
-    private static IResult Ingest(TelemetryPacketDto dto, ILoggerFactory loggerFactory)
+    private static IResult Ingest(TelemetryPacketDto dto, TelemetryStore store)
     {
-        ILogger logger = loggerFactory.CreateLogger("Telemetry");
-
         Dictionary<string, string[]> errors = Validate(dto);
 
         if (errors.Count > 0)
@@ -31,17 +31,17 @@ public static class TelemetryEndpoints
         {
             case TelemetryValueKind.Float:
                 dto.TryReadFloat(out float floatValue);
-                Accept(dto, floatValue, logger);
+                store.Floats.Add(ToPacket(dto, floatValue));
                 break;
 
             case TelemetryValueKind.Int:
                 dto.TryReadInt(out int intValue);
-                Accept(dto, intValue, logger);
+                store.Ints.Add(ToPacket(dto, intValue));
                 break;
 
             case TelemetryValueKind.Bool:
                 dto.TryReadBool(out bool boolValue);
-                Accept(dto, boolValue, logger);
+                store.Bools.Add(ToPacket(dto, boolValue));
                 break;
 
             // Without this a kind with no case would fall through and still answer 202
@@ -55,14 +55,49 @@ public static class TelemetryEndpoints
         return Results.Accepted();
     }
 
-    // Storage arrives in a later step, for now accepting a packet just logs it
-    private static void Accept<T>(TelemetryPacketDto dto, T value, ILogger logger) where T : struct
+    private static IResult GetNodes(TelemetryStore store)
     {
-        TelemetryPacket<T> packet = new(dto.NodeId, dto.TimestampUtc, dto.Category, value);
-        logger.LogInformation("Accepted {Packet}", packet.ToString());
+        List<string> nodes =
+        [
+            .. store.Floats.NodeIds(),
+            .. store.Ints.NodeIds(),
+            .. store.Bools.NodeIds()
+        ];
+
+        return Results.Ok(nodes.Order());
     }
 
-    // Minimal APIs do not validate automatically 
+    private static IResult GetHistory(string nodeId, TelemetryStore store)
+    {
+        List<ReadingDto> readings =
+        [
+            .. store.Floats.GetRecent(nodeId).Select(ToReading),
+            .. store.Ints.GetRecent(nodeId).Select(ToReading),
+            .. store.Bools.GetRecent(nodeId).Select(ToReading)
+        ];
+
+        if (readings.Count == 0)
+        {
+            return Results.NotFound();
+        }
+
+        readings.Sort((a, b) => a.TimestampUtc.CompareTo(b.TimestampUtc));
+
+        return Results.Ok(new NodeHistoryDto
+        {
+            NodeId = nodeId,
+            Count = readings.Count,
+            Readings = readings
+        });
+    }
+
+    private static TelemetryPacket<T> ToPacket<T>(TelemetryPacketDto dto, T value) where T : struct =>
+        new(dto.NodeId, dto.TimestampUtc, dto.Category, value);
+
+    private static ReadingDto ToReading<T>(TelemetryPacket<T> packet) where T : struct =>
+        new() { TimestampUtc = packet.TimestampUtc, Value = packet.Value };
+
+    // Minimal APIs do not validate automatically
     private static Dictionary<string, string[]> Validate(TelemetryPacketDto dto)
     {
         Dictionary<string, string[]> errors = [];
