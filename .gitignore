@@ -481,3 +481,6 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 todo.md
+
+# Encrypted sensor attachments
+uploads/

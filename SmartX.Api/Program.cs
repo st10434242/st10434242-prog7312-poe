@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using SmartX.Api;
 using SmartX.Api.Endpoints;
 using SmartX.Api.Hubs;
@@ -10,6 +11,30 @@ builder.Services.AddSingleton<TelemetryStore>();
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.AddSingleton<NodeStateTracker>();
 builder.Services.AddSingleton<FaultInjector>();
+
+builder.Services.AddSingleton(serviceProvider =>
+{
+    string directory = builder.Configuration["Attachments:Directory"] ?? "uploads";
+    string? configuredKey = builder.Configuration["Attachments:Key"];
+
+    byte[] key;
+
+    if (string.IsNullOrWhiteSpace(configuredKey))
+    {
+        // Generated so the project runs out of the box, but nothing uploaded survives a restart
+        key = RandomNumberGenerator.GetBytes(32);
+
+        serviceProvider.GetRequiredService<ILogger<Program>>().LogWarning(
+            "No Attachments:Key configured, generating a temporary one. " +
+            "Set it with: dotnet user-secrets set \"Attachments:Key\" \"<base64 32 bytes>\"");
+    }
+    else
+    {
+        key = Convert.FromBase64String(configuredKey);
+    }
+
+    return new AttachmentStore(directory, key);
+});
 
 builder.Services.AddHostedService<StalenessSweeper>();
 
@@ -40,6 +65,7 @@ app.MapSensorEndpoints();
 app.MapTelemetryEndpoints();
 app.MapTopologyEndpoints();
 app.MapDebugEndpoints();
+app.MapAttachmentEndpoints();
 
 app.MapHub<TelemetryHub>("/hub/telemetry");
 app.MapHealthChecks("/health");
