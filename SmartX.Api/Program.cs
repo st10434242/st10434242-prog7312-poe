@@ -21,5 +21,6 @@ if (app.Environment.IsDevelopment())
 
 app.MapSensorEndpoints();
 app.MapTelemetryEndpoints();
+app.MapTopologyEndpoints();
 
 app.Run();
