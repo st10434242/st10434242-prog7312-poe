@@ -1,13 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using Microsoft.Extensions.Options;
-using SmartX.Core;
 using SmartX.Core.Contracts;
 
 namespace SmartX.Simulator;
 
-// Stands in for an ESP32 publishing to the gateway. Just one node right now i can make a whole fleet later 
+// Stands in for the ESP32 fleet publishing to the gateway
 public class Worker(
     ILogger<Worker> logger,
     IHttpClientFactory httpClientFactory,
@@ -19,16 +17,19 @@ public class Worker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        List<SimulatedSensor> fleet = FleetBuilder.Build(_options);
+
         logger.LogInformation(
-            "Publishing as {NodeId} to {Url} every {Interval}ms",
-            _options.NodeId,
+            "Simulating {Count} sensors across {Facility}, publishing to {Url} every {Interval}ms",
+            fleet.Count,
+            _options.Facility,
             _options.ApiBaseUrl,
             _options.PublishIntervalMs);
 
         HttpClient client = httpClientFactory.CreateClient(HttpClientName);
 
-        // The gateway rejects unregistered nodes, so keep trying until it accepts us
-        while (!await TryRegisterAsync(client, stoppingToken))
+        // The gateway rejects unregistered nodes, so keep trying until the whole fleet is known
+        while (!await TryRegisterFleetAsync(client, fleet, stoppingToken))
         {
             if (!await DelayAsync(stoppingToken))
             {
@@ -36,9 +37,12 @@ public class Worker(
             }
         }
 
+        long tick = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
-            await PublishAsync(client, stoppingToken);
+            await PublishTickAsync(client, fleet, tick, stoppingToken);
+            tick++;
 
             if (!await DelayAsync(stoppingToken))
             {
@@ -47,31 +51,41 @@ public class Worker(
         }
     }
 
-    private async Task<bool> TryRegisterAsync(HttpClient client, CancellationToken cancellationToken)
+    private async Task<bool> TryRegisterFleetAsync(
+        HttpClient client,
+        List<SimulatedSensor> fleet,
+        CancellationToken cancellationToken)
     {
-        SensorRegistrationDto registration = new()
-        {
-            NodeId = _options.NodeId,
-            Mac = _options.Mac,
-            Location = _options.Location,
-            Category = SensorCategory.Environmental,
-            ExpectedIntervalMs = _options.PublishIntervalMs
-        };
-
         try
         {
-            HttpResponseMessage response =
-                await client.PostAsJsonAsync("/api/sensors", registration, cancellationToken);
-
-            // Conflict just means the gateway already knows us from a previous run
-            if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.Conflict)
+            foreach (SimulatedSensor sensor in fleet)
             {
-                logger.LogInformation("Registered {NodeId}", _options.NodeId);
-                return true;
+                SensorRegistrationDto registration = new()
+                {
+                    NodeId = sensor.NodeId,
+                    Mac = sensor.Mac,
+                    Location = sensor.Location,
+                    Category = sensor.Category,
+                    ExpectedIntervalMs = _options.PublishIntervalMs * sensor.PublishEveryNTicks
+                };
+
+                HttpResponseMessage response =
+                    await client.PostAsJsonAsync("/api/sensors", registration, cancellationToken);
+
+                // Conflict just means the gateway already knows this node from a previous run
+                if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.Conflict)
+                {
+                    logger.LogWarning(
+                        "Registration rejected for {NodeId} ({Status})",
+                        sensor.NodeId,
+                        (int)response.StatusCode);
+
+                    return false;
+                }
             }
 
-            logger.LogWarning("Registration rejected ({Status})", (int)response.StatusCode);
-            return false;
+            logger.LogInformation("Registered {Count} sensors", fleet.Count);
+            return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -84,31 +98,54 @@ public class Worker(
         }
     }
 
-    private async Task PublishAsync(HttpClient client, CancellationToken cancellationToken)
+    private async Task PublishTickAsync(
+        HttpClient client,
+        List<SimulatedSensor> fleet,
+        long tick,
+        CancellationToken cancellationToken)
     {
-        float reading = 40f + (Random.Shared.NextSingle() * 5f);
+        List<TelemetryPacketDto> batch = [];
+        int spikes = 0;
 
-        TelemetryPacketDto packet = new()
+        foreach (SimulatedSensor sensor in fleet)
         {
-            NodeId = _options.NodeId,
-            TimestampUtc = DateTimeOffset.UtcNow,
-            Category = SensorCategory.Environmental,
-            ValueKind = TelemetryValueKind.Float,
-            Value = JsonSerializer.SerializeToElement(reading)
-        };
+            sensor.UpdateFaults(_options.SilenceChance, _options.RecoverChance);
+
+            if (!sensor.ShouldPublish(tick))
+            {
+                continue;
+            }
+
+            batch.Add(sensor.NextReading(_options.SpikeChance, out bool spiked));
+
+            if (spiked)
+            {
+                spikes++;
+            }
+        }
+
+        if (batch.Count == 0)
+        {
+            return;
+        }
 
         try
         {
+            // One request per tick rather than one per sensor, which is what the batch endpoint is for
             HttpResponseMessage response =
-                await client.PostAsJsonAsync("/api/telemetry", packet, cancellationToken);
+                await client.PostAsJsonAsync("/api/telemetry/batch", batch, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
-                logger.LogInformation("Published {Reading:F2} ({Status})", reading, (int)response.StatusCode);
+                logger.LogInformation(
+                    "Published {Count} readings ({Silent} silent, {Spikes} spiking)",
+                    batch.Count,
+                    fleet.Count(s => s.IsSilent),
+                    spikes);
             }
             else
             {
-                logger.LogWarning("Gateway rejected the packet ({Status})", (int)response.StatusCode);
+                logger.LogWarning("Gateway rejected the batch ({Status})", (int)response.StatusCode);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

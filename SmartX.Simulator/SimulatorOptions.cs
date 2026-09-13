@@ -8,9 +8,19 @@ public sealed class SimulatorOptions
 
     public int PublishIntervalMs { get; set; } = 1000;
 
-    public string NodeId { get; set; } = "ESP32-7F2A";
+    public string Facility { get; set; } = "FacilityA";
 
-    public string Mac { get; set; } = "AA:BB:CC:DD:EE:FF";
+    public int Zones { get; set; } = 3;
 
-    public string Location { get; set; } = "FacilityA/Zone1/SubZoneB";
+    public int SubZonesPerZone { get; set; } = 2;
+
+    public int SensorsPerSubZone { get; set; } = 4;
+
+    // Chance per reading that a sensor reports a sudden spike
+    public double SpikeChance { get; set; } = 0.02;
+
+    // Chance per tick that a live sensor goes quiet, and that a quiet one comes back
+    public double SilenceChance { get; set; } = 0.005;
+
+    public double RecoverChance { get; set; } = 0.1;
 }
