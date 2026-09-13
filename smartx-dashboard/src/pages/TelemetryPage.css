@@ -1,0 +1,40 @@
+.telemetry__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.telemetry__back {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.telemetry__back:hover {
+  color: var(--accent);
+}
+
+.telemetry__title {
+  font-size: 1.4rem;
+  margin-top: var(--space-1);
+}
+
+.telemetry__feed {
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.telemetry__count {
+  font-size: 2rem;
+  font-family: var(--mono);
+}
+
+.telemetry__last {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: var(--space-2) 0 0;
+}

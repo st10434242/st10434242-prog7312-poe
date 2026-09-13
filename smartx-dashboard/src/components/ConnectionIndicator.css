@@ -1,0 +1,57 @@
+.connection {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.connection__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--stale);
+  flex-shrink: 0;
+}
+
+.connection--connected .connection__dot {
+  background: var(--normal);
+  animation: connection-pulse 2s ease-in-out infinite;
+}
+
+.connection--connecting .connection__dot,
+.connection--reconnecting .connection__dot {
+  background: var(--caution);
+  animation: connection-pulse 0.9s ease-in-out infinite;
+}
+
+.connection--disconnected .connection__dot {
+  background: var(--alert);
+}
+
+.connection--disconnected {
+  color: var(--alert);
+  border-color: color-mix(in srgb, var(--alert) 40%, transparent);
+}
+
+@keyframes connection-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Motion is decoration here, the label already says the state */
+@media (prefers-reduced-motion: reduce) {
+  .connection__dot {
+    animation: none !important;
+  }
+}
