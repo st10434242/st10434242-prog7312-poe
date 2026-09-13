@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ConnectionIndicator } from '../components/ConnectionIndicator'
+import { FleetSummary } from '../components/FleetSummary'
 import { HeartbeatWall } from '../components/HeartbeatWall'
 import { useFleet } from '../hooks/useFleet'
 import './TelemetryPage.css'
@@ -18,6 +19,8 @@ export function TelemetryPage() {
         </div>
         <ConnectionIndicator status={status} />
       </header>
+
+      {!loading && !error && tiles.length > 0 && <FleetSummary tiles={tiles} />}
 
       <HeartbeatWall tiles={tiles} loading={loading} error={error} />
     </main>
