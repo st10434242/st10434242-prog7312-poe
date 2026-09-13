@@ -1,6 +1,76 @@
-@SmartX.Api_HostAddress = http://localhost:5225
+@host = http://localhost:5225
 
-GET {{SmartX.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Environmental reading, float
+POST {{host}}/api/telemetry
+Content-Type: application/json
 
-###
+{
+  "nodeId": "ESP32-7F2A",
+  "timestampUtc": "2026-09-13T14:22:31Z",
+  "category": "Environmental",
+  "valueKind": "Float",
+  "value": 42.5
+}
+
+### Power reading, int
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "METER-01",
+  "timestampUtc": "2026-09-13T14:22:31Z",
+  "category": "PowerConsumption",
+  "valueKind": "Int",
+  "value": 900
+}
+
+### Actuator reading, bool
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "VALVE-03",
+  "timestampUtc": "2026-09-13T14:22:31Z",
+  "category": "Actuator",
+  "valueKind": "Bool",
+  "value": true
+}
+
+### Rejected, tagged Bool but carries a number
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "VALVE-03",
+  "timestampUtc": "2026-09-13T14:22:31Z",
+  "category": "Actuator",
+  "valueKind": "Bool",
+  "value": 42
+}
+
+### Rejected, a power meter cannot publish a bool
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "METER-01",
+  "timestampUtc": "2026-09-13T14:22:31Z",
+  "category": "PowerConsumption",
+  "valueKind": "Bool",
+  "value": true
+}
+
+### Rejected, blank node id
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "",
+  "timestampUtc": "2026-09-13T14:22:31Z",
+  "category": "Environmental",
+  "valueKind": "Float",
+  "value": 42.5
+}
+
+### OpenAPI document
+GET {{host}}/openapi/v1.json
