@@ -223,3 +223,23 @@
 .tile__link:hover .tile--alert {
   border-color: var(--alert);
 }
+
+/* Tighter grid on a phone, so tiles stay two-up rather than one enormous column */
+@media (max-width: 560px) {
+  .wall {
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: var(--space-2);
+  }
+
+  .tile {
+    padding: var(--space-3);
+  }
+
+  .tile__value {
+    font-size: 1.2rem;
+  }
+
+  .tile__meta {
+    font-size: 0.68rem;
+  }
+}

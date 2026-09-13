@@ -1,0 +1,110 @@
+.attach__empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0 0 var(--space-3);
+}
+
+.attach__list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.attach__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.attach__meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.attach__name {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attach__name:hover {
+  text-decoration: underline;
+}
+
+.attach__detail {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.attach__remove {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.attach__remove:hover {
+  border-color: var(--alert);
+  color: var(--alert);
+}
+
+.attach__upload {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.attach__upload input[type='file'] {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.attach__upload input[type='file']::file-selector-button {
+  padding: var(--space-2) var(--space-3);
+  margin-right: var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.attach__upload input[type='file']::file-selector-button:hover {
+  border-color: var(--accent);
+}
+
+.attach__status {
+  font-size: 0.82rem;
+  color: var(--caution);
+}
+
+.attach__message {
+  margin: var(--space-3) 0 0;
+  font-size: 0.82rem;
+}
+
+.attach__message--ok {
+  color: var(--normal);
+}
+
+.attach__message--bad {
+  color: var(--alert);
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
+import { AttachmentsPanel } from '../components/AttachmentsPanel'
 import { ConnectionIndicator } from '../components/ConnectionIndicator'
 import { Sparkline } from '../components/Sparkline'
 import { useNode } from '../hooks/useNode'
@@ -121,6 +122,8 @@ function NodeDetail({ nodeId }: { nodeId: string }) {
           </table>
         </div>
       </section>
+
+      <AttachmentsPanel nodeId={nodeId} />
 
       <section className="node__panel">
         <p className="node__panel-title">Fault injection</p>

@@ -126,3 +126,27 @@
   border-color: var(--alert);
   color: var(--alert);
 }
+
+/* The packet table has fixed columns, so it scrolls sideways rather than squashing the page */
+.node__scroll {
+  overflow-x: auto;
+}
+
+@media (max-width: 560px) {
+  .node__title {
+    font-size: 1.15rem;
+    word-break: break-all;
+  }
+
+  .node__reading {
+    font-size: 1.75rem;
+  }
+
+  .spark--detail {
+    height: 80px;
+  }
+
+  .node__facts {
+    gap: var(--space-3);
+  }
+}

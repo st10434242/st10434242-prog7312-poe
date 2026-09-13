@@ -45,3 +45,27 @@ export function validateRegistration(form: SensorRegistration): Record<string, s
 
   return errors
 }
+
+// Mirrors AttachmentStore: configs, logs and deployment photos, capped at 10 MB
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+export const ALLOWED_EXTENSIONS = [
+  '.json', '.yaml', '.yml', '.conf', '.cfg', '.txt', '.log', '.csv', '.png', '.jpg', '.jpeg',
+]
+
+export function validateAttachment(file: File): string | null {
+  const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+
+  if (!ALLOWED_EXTENSIONS.includes(extension)) {
+    return `Allowed types are ${ALLOWED_EXTENSIONS.join(', ')}.`
+  }
+
+  if (file.size === 0) {
+    return 'The file is empty.'
+  }
+
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    return `Files must be ${MAX_ATTACHMENT_BYTES / 1024 / 1024} MB or smaller.`
+  }
+
+  return null
+}
