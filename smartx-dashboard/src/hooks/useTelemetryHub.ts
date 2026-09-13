@@ -12,9 +12,13 @@ interface Handlers {
 export function useTelemetryHub(handlers: Handlers): HubStatus {
   const [status, setStatus] = useState<HubStatus>('connecting')
 
-  // Held in a ref so a re-render does not tear down and rebuild the connection
+  // Held in a ref so a re-render does not tear down and rebuild the connection.
+  // Assigned in an effect rather than during render, which concurrent rendering does not allow.
   const latest = useRef(handlers)
-  latest.current = handlers
+
+  useEffect(() => {
+    latest.current = handlers
+  })
 
   useEffect(() => {
     let cancelled = false

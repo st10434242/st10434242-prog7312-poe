@@ -20,21 +20,3 @@
   font-size: 1.4rem;
   margin-top: var(--space-1);
 }
-
-.telemetry__feed {
-  padding: var(--space-5);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.telemetry__count {
-  font-size: 2rem;
-  font-family: var(--mono);
-}
-
-.telemetry__last {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  margin: var(--space-2) 0 0;
-}
