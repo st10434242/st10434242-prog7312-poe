@@ -6,11 +6,12 @@ const HEIGHT = 24
 interface Props {
   values: number[]
   category: SensorCategory
+  className?: string
 }
 
-export function Sparkline({ values, category }: Props) {
+export function Sparkline({ values, category, className = '' }: Props) {
   if (values.length < 2) {
-    return <div className="spark spark--empty" aria-hidden="true" />
+    return <div className={`spark spark--empty ${className}`} aria-hidden="true" />
   }
 
   const { lo, hi } = range(values, category)
@@ -25,7 +26,7 @@ export function Sparkline({ values, category }: Props) {
 
   return (
     <svg
-      className="spark"
+      className={`spark ${className}`}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       preserveAspectRatio="none"
       aria-hidden="true"

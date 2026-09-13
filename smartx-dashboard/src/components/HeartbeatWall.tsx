@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { Tile } from '../hooks/useFleet'
 import { Sparkline } from './Sparkline'
 import { categoryLabel, formatValue } from '../lib/format'
@@ -33,6 +34,7 @@ export function HeartbeatWall({ tiles, loading, error }: Props) {
 
 function SensorTile({ tile }: { tile: Tile }) {
   return (
+    <Link to={`/node/${encodeURIComponent(tile.nodeId)}`} className="tile__link">
     <article
       className={`tile tile--${tile.band.toLowerCase()} tile--${tile.liveness.toLowerCase()}`}
       aria-label={`${tile.nodeId}, ${formatValue(tile.value, tile.category)}, ${tile.band}, ${tile.liveness}`}
@@ -58,5 +60,6 @@ function SensorTile({ tile }: { tile: Tile }) {
         <span className="tile__location">{tile.location}</span>
       </div>
     </article>
+    </Link>
   )
 }

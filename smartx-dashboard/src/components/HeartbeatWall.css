@@ -209,3 +209,17 @@
 .tile--alert .spark {
   color: var(--alert);
 }
+
+.tile__link {
+  display: block;
+  border-radius: var(--radius);
+}
+
+.tile__link:hover .tile {
+  border-color: var(--border-bright);
+  background: var(--surface-raised);
+}
+
+.tile__link:hover .tile--alert {
+  border-color: var(--alert);
+}
