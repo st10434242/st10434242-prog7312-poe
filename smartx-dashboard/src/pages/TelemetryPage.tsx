@@ -3,13 +3,14 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { ConnectionIndicator } from '../components/ConnectionIndicator'
 import { FleetSummary } from '../components/FleetSummary'
 import { HeartbeatWall } from '../components/HeartbeatWall'
+import { RegisterSensorForm } from '../components/RegisterSensorForm'
 import { ZoneNav } from '../components/ZoneNav'
 import { useFleet } from '../hooks/useFleet'
 import { findZone, useTopology } from '../hooks/useTopology'
 import './TelemetryPage.css'
 
 export function TelemetryPage() {
-  const { tiles, loading, error, status } = useFleet()
+  const { tiles, loading, error, status, refresh } = useFleet()
   const root = useTopology(tiles.length)
 
   // Kept in the URL so the browser's back button walks back up the hierarchy
@@ -47,6 +48,8 @@ export function TelemetryPage() {
         </div>
         <ConnectionIndicator status={status} />
       </header>
+
+      <RegisterSensorForm onRegistered={refresh} />
 
       <ZoneNav zone={zone} path={path} tiles={tiles} onNavigate={navigate} />
 

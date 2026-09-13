@@ -1,0 +1,112 @@
+.register {
+  margin-bottom: var(--space-4);
+}
+
+.register__toggle {
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.register__toggle:hover {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+}
+
+.register__panel {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.register__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field__label {
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.field input,
+.field select {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.88rem;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--accent);
+}
+
+.field--invalid input,
+.field--invalid select {
+  border-color: var(--alert);
+}
+
+.field__error {
+  font-size: 0.75rem;
+  color: var(--alert);
+  min-height: 1em;
+}
+
+.field__hint {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.register__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.register__submit {
+  padding: var(--space-2) var(--space-5);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #04121f;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.register__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.register__result {
+  font-size: 0.85rem;
+}
+
+.register__result--ok {
+  color: var(--normal);
+}
+
+.register__result--bad {
+  color: var(--alert);
+}

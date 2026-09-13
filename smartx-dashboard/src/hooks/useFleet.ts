@@ -23,12 +23,15 @@ interface Fleet {
   loading: boolean
   error: string | null
   status: HubStatus
+  refresh: () => void
 }
 
 export function useFleet(): Fleet {
   const [tiles, setTiles] = useState<Map<string, Tile>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [reloadToken, setReloadToken] = useState(0)
 
   const pending = useRef(new Map<string, Partial<Tile>>())
   const pendingHistory = useRef(new Map<string, number[]>())
@@ -102,7 +105,7 @@ export function useFleet(): Fleet {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadToken])
 
   // Readings arrive faster than anyone can read them, so they are merged and flushed on a timer
   // rather than re-rendering the whole wall once per packet
@@ -168,7 +171,13 @@ export function useFleet(): Fleet {
     },
   })
 
-  return { tiles: [...tiles.values()], loading, error, status }
+  return {
+    tiles: [...tiles.values()],
+    loading,
+    error,
+    status,
+    refresh: () => setReloadToken((token) => token + 1),
+  }
 }
 
 // Valve states plot as 0 and 1 so a boolean stream can share the sparkline
