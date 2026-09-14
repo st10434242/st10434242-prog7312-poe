@@ -135,18 +135,31 @@ public class Worker(
             HttpResponseMessage response =
                 await client.PostAsJsonAsync("/api/telemetry/batch", batch, cancellationToken);
 
-            if (response.IsSuccessStatusCode)
-            {
-                logger.LogInformation(
-                    "Published {Count} readings ({Silent} silent, {Spikes} spiking)",
-                    batch.Count,
-                    fleet.Count(s => s.IsSilent),
-                    spikes);
-            }
-            else
+            if (!response.IsSuccessStatusCode)
             {
                 logger.LogWarning("Gateway rejected the batch ({Status})", (int)response.StatusCode);
+                return;
             }
+
+            BatchResultDto? result =
+                await response.Content.ReadFromJsonAsync<BatchResultDto>(cancellationToken);
+
+            // A batch accepted with nothing stored means the gateway has forgotten these nodes, which happens whenever it restarts, since the registry is held in memory
+            if (result is { Accepted: 0, Rejected: > 0 })
+            {
+                logger.LogWarning(
+                    "Gateway stored none of {Count} readings, registering the fleet again",
+                    batch.Count);
+
+                await TryRegisterFleetAsync(client, fleet, cancellationToken);
+                return;
+            }
+
+            logger.LogInformation(
+                "Published {Count} readings ({Silent} silent, {Spikes} spiking)",
+                result?.Accepted ?? batch.Count,
+                fleet.Count(s => s.IsSilent),
+                spikes);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
