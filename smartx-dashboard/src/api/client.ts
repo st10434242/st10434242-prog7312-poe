@@ -86,6 +86,8 @@ export const api = {
 
   downloadAttachmentUrl: (id: string) => `/api/attachments/${id}`,
 
+  getSilenced: () => request<string[]>('/api/debug/silence'),
+
   silenceNode: (nodeId: string) =>
     request<void>(`/api/debug/silence/${encodeURIComponent(nodeId)}`, { method: 'POST' }),
 

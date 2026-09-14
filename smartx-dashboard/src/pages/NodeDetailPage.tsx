@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { AttachmentsPanel } from '../components/AttachmentsPanel'
@@ -21,6 +21,27 @@ function NodeDetail({ nodeId }: { nodeId: string }) {
   const navigate = useNavigate()
   const { sensor, readings, band, liveness, loading, error, status } = useNode(nodeId)
   const [silenced, setSilenced] = useState(false)
+
+  // Read the real state back, otherwise leaving the page and returning resets the button
+  // to "Silence" while the gateway is still ignoring the node
+  useEffect(() => {
+    let cancelled = false
+
+    api
+      .getSilenced()
+      .then((ids) => {
+        if (!cancelled) {
+          setSilenced(ids.some((id) => id.toLowerCase() === nodeId.toLowerCase()))
+        }
+      })
+      .catch(() => {
+        // Debug endpoint being unavailable should not break the page
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [nodeId])
 
   if (loading) {
     return <main className="page">Loading {nodeId}…</main>

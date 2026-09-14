@@ -111,6 +111,11 @@
 .node__scroll {
   max-height: 340px;
   overflow-y: auto;
+  /* Scrolls sideways rather than squashing the page on a narrow screen */
+  overflow-x: auto;
+  /* Reserve the scrollbar's width, otherwise it sits on top of the right aligned values */
+  scrollbar-gutter: stable;
+  padding-right: var(--space-2);
 }
 
 .node__danger {
@@ -125,11 +130,6 @@
 .node__danger:hover {
   border-color: var(--alert);
   color: var(--alert);
-}
-
-/* The packet table has fixed columns, so it scrolls sideways rather than squashing the page */
-.node__scroll {
-  overflow-x: auto;
 }
 
 @media (max-width: 560px) {
