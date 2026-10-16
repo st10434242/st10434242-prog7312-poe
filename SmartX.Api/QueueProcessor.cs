@@ -13,6 +13,7 @@ public sealed class QueueProcessor(
     TelemetryStore store,
     NodeStateTracker tracker,
     DeviceTable devices,
+    TimelineLog timeline,
     IHubContext<TelemetryHub> hub,
     ILogger<QueueProcessor> logger) : BackgroundService
 {
@@ -65,6 +66,15 @@ public sealed class QueueProcessor(
 
         alerts.MarkProcessed(work.Alert);
 
+        await LogEventAsync(new TimelineEventDto
+        {
+            TimestampUtc = work.Alert.RaisedAtUtc,
+            Kind = TimelineEventKind.Alert,
+            NodeId = work.Alert.NodeId,
+            Severity = work.Alert.Severity,
+            Message = work.Alert.Message
+        }, cancellationToken);
+
         await ProcessAsync(work.Packet, cancellationToken, alerted: true);
     }
 
@@ -80,9 +90,22 @@ public sealed class QueueProcessor(
                 return;
             }
 
-            // A packet just arrived so the node is live
-            tracker.Update(reading.NodeId, LivenessState.Live);
+            // A packet just arrived so the node is live, if it was stale before then it has come back
+            LivenessState before = tracker.Get(reading.NodeId);
+
+            if (tracker.Update(reading.NodeId, LivenessState.Live) && before == LivenessState.Stale)
+            {
+                await LogEventAsync(new TimelineEventDto
+                {
+                    TimestampUtc = reading.TimestampUtc,
+                    Kind = TimelineEventKind.Online,
+                    NodeId = reading.NodeId,
+                    Message = $"{reading.NodeId} is online"
+                }, cancellationToken);
+            }
+
             devices.RecordReading(reading, alerted);
+            timeline.RecordReading(reading.NodeId, reading.TimestampUtc, ToNumber(reading.Value));
 
             await hub.Clients.All.SendAsync("ReadingReceived", reading, cancellationToken);
         }
@@ -92,6 +115,15 @@ public sealed class QueueProcessor(
             logger.LogError(ex, "Failed to process packet from {NodeId}", dto.NodeId);
         }
     }
+
+    private async Task LogEventAsync(TimelineEventDto timelineEvent, CancellationToken cancellationToken)
+    {
+        timeline.LogEvent(timelineEvent);
+        await hub.Clients.All.SendAsync("EventLogged", timelineEvent, cancellationToken);
+    }
+
+    // Valves go on the graph as 0 or 1
+    private static double ToNumber(object value) => value is bool on ? (on ? 1 : 0) : Convert.ToDouble(value);
 
     // The only place an untyped payload becomes a typed packet
     private ReadingEventDto? StoreReading(TelemetryPacketDto dto)

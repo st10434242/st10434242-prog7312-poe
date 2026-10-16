@@ -12,6 +12,7 @@ public sealed class StalenessSweeper(
     TelemetryStore store,
     NodeStateTracker tracker,
     DeviceTable devices,
+    TimelineLog timeline,
     IHubContext<TelemetryHub> hub,
     ILogger<StalenessSweeper> logger) : BackgroundService
 {
@@ -62,6 +63,21 @@ public sealed class StalenessSweeper(
                     LastSeenUtc = lastSeen
                 },
                 cancellationToken);
+
+            // Only a full disconnect goes in the history, dimmed is too noisy
+            if (state == LivenessState.Stale)
+            {
+                TimelineEventDto timelineEvent = new()
+                {
+                    TimestampUtc = now,
+                    Kind = TimelineEventKind.Disconnected,
+                    NodeId = sensor.NodeId,
+                    Message = $"{sensor.NodeId} stopped reporting"
+                };
+
+                timeline.LogEvent(timelineEvent);
+                await hub.Clients.All.SendAsync("EventLogged", timelineEvent, cancellationToken);
+            }
         }
     }
 }

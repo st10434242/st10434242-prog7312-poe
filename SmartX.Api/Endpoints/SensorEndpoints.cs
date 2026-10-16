@@ -68,7 +68,7 @@ public static class SensorEndpoints
             ? Results.Ok(ToDto(registration, tracker, store))
             : Results.NotFound();
 
-    private static IResult Delete(string nodeId, SensorRegistry registry, DeviceTable devices)
+    private static IResult Delete(string nodeId, SensorRegistry registry, DeviceTable devices, TimelineLog timeline)
     {
         if (!registry.Remove(nodeId))
         {
@@ -76,6 +76,7 @@ public static class SensorEndpoints
         }
 
         devices.Remove(nodeId);
+        timeline.Remove(nodeId);
         return Results.NoContent();
     }
 
