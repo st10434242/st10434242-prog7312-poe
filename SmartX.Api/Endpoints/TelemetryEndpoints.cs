@@ -23,7 +23,8 @@ public static class TelemetryEndpoints
         TelemetryPacketDto dto,
         SensorRegistry registry,
         FaultInjector faults,
-        TelemetryQueue queue)
+        TelemetryQueue queue,
+        AlertQueue alerts)
     {
         Dictionary<string, string[]> errors = Validate(dto, registry);
 
@@ -38,7 +39,7 @@ public static class TelemetryEndpoints
             return Results.Accepted();
         }
 
-        if (!queue.TryEnqueue(dto))
+        if (!Route(dto, queue, alerts))
         {
             return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
@@ -51,7 +52,8 @@ public static class TelemetryEndpoints
         TelemetryPacketDto[] packets,
         SensorRegistry registry,
         FaultInjector faults,
-        TelemetryQueue queue)
+        TelemetryQueue queue,
+        AlertQueue alerts)
     {
         int accepted = 0;
 
@@ -62,7 +64,7 @@ public static class TelemetryEndpoints
                 continue;
             }
 
-            if (faults.IsSilenced(dto.NodeId) || queue.TryEnqueue(dto))
+            if (faults.IsSilenced(dto.NodeId) || Route(dto, queue, alerts))
             {
                 accepted++;
             }
@@ -73,6 +75,20 @@ public static class TelemetryEndpoints
             Accepted = accepted,
             Rejected = packets.Length - accepted
         });
+    }
+
+    // Anything that trips an alert bypasses the normal queue, everything else waits its turn
+    private static bool Route(TelemetryPacketDto dto, TelemetryQueue queue, AlertQueue alerts)
+    {
+        AlertDto? alert = AlertClassifier.Classify(dto);
+
+        if (alert is null)
+        {
+            return queue.TryEnqueue(dto);
+        }
+
+        alerts.Enqueue(dto, alert);
+        return true;
     }
 
     private static IResult GetNodes(TelemetryStore store)

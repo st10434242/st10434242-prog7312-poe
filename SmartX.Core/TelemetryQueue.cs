@@ -7,7 +7,7 @@ public sealed class TelemetryQueue
 {
     private readonly Queue<TelemetryPacketDto> _packets = new();
     private readonly Lock _gate = new();
-    private readonly SemaphoreSlim _signal = new(0);
+    private readonly IngestSignal _signal;
     private readonly int _capacity;
 
     private long _enqueued;
@@ -19,7 +19,11 @@ public sealed class TelemetryQueue
     private int _processedThisSecond;
     private int _lastSecondRate;
 
-    public TelemetryQueue(int capacity = 10_000) => _capacity = capacity;
+    public TelemetryQueue(IngestSignal signal, int capacity = 10_000)
+    {
+        _signal = signal;
+        _capacity = capacity;
+    }
 
     public int Count
     {
@@ -47,12 +51,7 @@ public sealed class TelemetryQueue
             _enqueued++;
         }
 
-        // Only wake the processor if it is actually asleep
-        if (_signal.CurrentCount == 0)
-        {
-            _signal.Release();
-        }
-
+        _signal.Wake();
         return true;
     }
 
@@ -63,8 +62,6 @@ public sealed class TelemetryQueue
             return _packets.TryDequeue(out packet);
         }
     }
-
-    public Task WaitForPacketsAsync(CancellationToken cancellationToken) => _signal.WaitAsync(cancellationToken);
 
     public void MarkProcessed()
     {

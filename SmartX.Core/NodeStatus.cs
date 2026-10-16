@@ -55,6 +55,9 @@ public static class NodeStatus
         {
             >= 80 => ThresholdBand.Alert,
             >= 60 => ThresholdBand.Caution,
+            // Dry soil is just as bad as flooded soil for a hydroponics node
+            < 20 => ThresholdBand.Alert,
+            < 30 => ThresholdBand.Caution,
             _ => ThresholdBand.Normal
         },
         SensorCategory.PowerConsumption => value switch

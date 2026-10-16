@@ -11,7 +11,9 @@ builder.Services.AddSingleton<TelemetryStore>();
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.AddSingleton<NodeStateTracker>();
 builder.Services.AddSingleton<FaultInjector>();
+builder.Services.AddSingleton<IngestSignal>();
 builder.Services.AddSingleton<TelemetryQueue>();
+builder.Services.AddSingleton<AlertQueue>();
 
 builder.Services.AddSingleton(serviceProvider =>
 {
