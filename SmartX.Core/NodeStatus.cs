@@ -49,7 +49,6 @@ public static class NodeStatus
             : LivenessState.Stale;
     }
 
-    // Bands follow the caution and alert style used by Naing et al. for CO2
     public static ThresholdBand BandFor(SensorCategory category, double value) => category switch
     {
         SensorCategory.Environmental => value switch
