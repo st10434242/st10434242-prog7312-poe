@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.SignalR;
-using SmartX.Api.Hubs;
 using SmartX.Core;
 using SmartX.Core.Contracts;
 
@@ -20,13 +18,12 @@ public static class TelemetryEndpoints
         return group;
     }
 
-    private static async Task<IResult> Ingest(
+    // Validated here but only queued, the QueueProcessor does the storing and broadcasting
+    private static IResult Ingest(
         TelemetryPacketDto dto,
-        TelemetryStore store,
         SensorRegistry registry,
-        NodeStateTracker tracker,
         FaultInjector faults,
-        IHubContext<TelemetryHub> hub)
+        TelemetryQueue queue)
     {
         Dictionary<string, string[]> errors = Validate(dto, registry);
 
@@ -41,29 +38,20 @@ public static class TelemetryEndpoints
             return Results.Accepted();
         }
 
-        ReadingEventDto? reading = StoreReading(dto, store);
-
-        if (reading is null)
+        if (!queue.TryEnqueue(dto))
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
-            {
-                [nameof(dto.ValueKind)] = [$"Unsupported value kind '{dto.ValueKind}'."]
-            });
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
-
-        await BroadcastAsync(reading, tracker, hub);
 
         return Results.Accepted();
     }
 
     // One bad packet should not cost the whole batch, so each is judged on its own
-    private static async Task<IResult> IngestBatch(
+    private static IResult IngestBatch(
         TelemetryPacketDto[] packets,
-        TelemetryStore store,
         SensorRegistry registry,
-        NodeStateTracker tracker,
         FaultInjector faults,
-        IHubContext<TelemetryHub> hub)
+        TelemetryQueue queue)
     {
         int accepted = 0;
 
@@ -74,17 +62,8 @@ public static class TelemetryEndpoints
                 continue;
             }
 
-            if (faults.IsSilenced(dto.NodeId))
+            if (faults.IsSilenced(dto.NodeId) || queue.TryEnqueue(dto))
             {
-                accepted++;
-                continue;
-            }
-
-            ReadingEventDto? reading = StoreReading(dto, store);
-
-            if (reading is not null)
-            {
-                await BroadcastAsync(reading, tracker, hub);
                 accepted++;
             }
         }
@@ -94,17 +73,6 @@ public static class TelemetryEndpoints
             Accepted = accepted,
             Rejected = packets.Length - accepted
         });
-    }
-
-    private static async Task BroadcastAsync(
-        ReadingEventDto reading,
-        NodeStateTracker tracker,
-        IHubContext<TelemetryHub> hub)
-    {
-        // A packet just arrived, so by definition the node is live
-        tracker.Update(reading.NodeId, LivenessState.Live);
-
-        await hub.Clients.All.SendAsync("ReadingReceived", reading);
     }
 
     private static IResult GetNodes(TelemetryStore store)
@@ -144,42 +112,6 @@ public static class TelemetryEndpoints
             Readings = ordered
         });
     }
-
-    // The only place an untyped payload becomes a typed packet
-    private static ReadingEventDto? StoreReading(TelemetryPacketDto dto, TelemetryStore store)
-    {
-        switch (dto.ValueKind)
-        {
-            case TelemetryValueKind.Float:
-                dto.TryReadFloat(out float floatValue);
-                store.Floats.Add(ToPacket(dto, floatValue));
-                return ToEvent(dto, floatValue, floatValue);
-
-            case TelemetryValueKind.Int:
-                dto.TryReadInt(out int intValue);
-                store.Ints.Add(ToPacket(dto, intValue));
-                return ToEvent(dto, intValue, intValue);
-
-            case TelemetryValueKind.Bool:
-                dto.TryReadBool(out bool boolValue);
-                store.Bools.Add(ToPacket(dto, boolValue));
-                return ToEvent(dto, boolValue, 0);
-
-            default:
-                return null;
-        }
-    }
-
-    private static ReadingEventDto ToEvent(TelemetryPacketDto dto, object value, double numeric) => new()
-    {
-        NodeId = dto.NodeId,
-        TimestampUtc = dto.TimestampUtc,
-        Value = value,
-        Band = NodeStatus.BandFor(dto.Category, numeric)
-    };
-
-    private static TelemetryPacket<T> ToPacket<T>(TelemetryPacketDto dto, T value) where T : struct =>
-        new(dto.NodeId, dto.TimestampUtc, dto.Category, value);
 
     private static ReadingDto ToReading<T>(TelemetryPacket<T> packet) where T : struct =>
         new() { TimestampUtc = packet.TimestampUtc, Value = packet.Value };

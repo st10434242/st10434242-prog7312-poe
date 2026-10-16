@@ -11,6 +11,7 @@ builder.Services.AddSingleton<TelemetryStore>();
 builder.Services.AddSingleton<SensorRegistry>();
 builder.Services.AddSingleton<NodeStateTracker>();
 builder.Services.AddSingleton<FaultInjector>();
+builder.Services.AddSingleton<TelemetryQueue>();
 
 builder.Services.AddSingleton(serviceProvider =>
 {
@@ -37,6 +38,7 @@ builder.Services.AddSingleton(serviceProvider =>
 });
 
 builder.Services.AddHostedService<StalenessSweeper>();
+builder.Services.AddHostedService<QueueProcessor>();
 
 builder.Services.AddSignalR();
 builder.Services.AddHealthChecks();
@@ -66,6 +68,7 @@ app.MapTelemetryEndpoints();
 app.MapTopologyEndpoints();
 app.MapDebugEndpoints();
 app.MapAttachmentEndpoints();
+app.MapStreamEndpoints();
 
 app.MapHub<TelemetryHub>("/hub/telemetry");
 app.MapHealthChecks("/health");
