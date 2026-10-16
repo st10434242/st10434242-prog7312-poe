@@ -21,7 +21,8 @@ public static class SensorEndpoints
         SensorRegistrationDto dto,
         SensorRegistry registry,
         NodeStateTracker tracker,
-        TelemetryStore store)
+        TelemetryStore store,
+        DeviceTable devices)
     {
         Dictionary<string, string[]> errors =
             Validate(dto, out MacAddress mac, out DeploymentPath location);
@@ -50,6 +51,8 @@ public static class SensorEndpoints
             return Results.Problem($"Node '{registration.NodeId}' is already registered.", statusCode: 409);
         }
 
+        devices.Add(registration);
+
         return Results.Created($"/api/sensors/{registration.NodeId}", ToDto(registration, tracker, store));
     }
 
@@ -65,8 +68,16 @@ public static class SensorEndpoints
             ? Results.Ok(ToDto(registration, tracker, store))
             : Results.NotFound();
 
-    private static IResult Delete(string nodeId, SensorRegistry registry) =>
-        registry.Remove(nodeId) ? Results.NoContent() : Results.NotFound();
+    private static IResult Delete(string nodeId, SensorRegistry registry, DeviceTable devices)
+    {
+        if (!registry.Remove(nodeId))
+        {
+            return Results.NotFound();
+        }
+
+        devices.Remove(nodeId);
+        return Results.NoContent();
+    }
 
     private static SensorDto ToDto(
         SensorRegistration registration,

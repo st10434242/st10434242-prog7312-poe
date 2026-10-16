@@ -14,6 +14,7 @@ builder.Services.AddSingleton<FaultInjector>();
 builder.Services.AddSingleton<IngestSignal>();
 builder.Services.AddSingleton<TelemetryQueue>();
 builder.Services.AddSingleton<AlertQueue>();
+builder.Services.AddSingleton<DeviceTable>();
 
 builder.Services.AddSingleton(serviceProvider =>
 {
@@ -71,6 +72,7 @@ app.MapTopologyEndpoints();
 app.MapDebugEndpoints();
 app.MapAttachmentEndpoints();
 app.MapStreamEndpoints();
+app.MapDeviceEndpoints();
 
 app.MapHub<TelemetryHub>("/hub/telemetry");
 app.MapHealthChecks("/health");

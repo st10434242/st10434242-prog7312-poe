@@ -11,6 +11,7 @@ public sealed class StalenessSweeper(
     SensorRegistry registry,
     TelemetryStore store,
     NodeStateTracker tracker,
+    DeviceTable devices,
     IHubContext<TelemetryHub> hub,
     ILogger<StalenessSweeper> logger) : BackgroundService
 {
@@ -49,6 +50,7 @@ public sealed class StalenessSweeper(
                 continue;
             }
 
+            devices.SetLiveness(sensor.NodeId, state);
             logger.LogInformation("{NodeId} is now {State}", sensor.NodeId, state);
 
             await hub.Clients.All.SendAsync(

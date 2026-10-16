@@ -12,6 +12,7 @@ public sealed class QueueProcessor(
     IngestSignal signal,
     TelemetryStore store,
     NodeStateTracker tracker,
+    DeviceTable devices,
     IHubContext<TelemetryHub> hub,
     ILogger<QueueProcessor> logger) : BackgroundService
 {
@@ -64,10 +65,10 @@ public sealed class QueueProcessor(
 
         alerts.MarkProcessed(work.Alert);
 
-        await ProcessAsync(work.Packet, cancellationToken);
+        await ProcessAsync(work.Packet, cancellationToken, alerted: true);
     }
 
-    private async Task ProcessAsync(TelemetryPacketDto dto, CancellationToken cancellationToken)
+    private async Task ProcessAsync(TelemetryPacketDto dto, CancellationToken cancellationToken, bool alerted = false)
     {
         try
         {
@@ -81,6 +82,7 @@ public sealed class QueueProcessor(
 
             // A packet just arrived so the node is live
             tracker.Update(reading.NodeId, LivenessState.Live);
+            devices.RecordReading(reading, alerted);
 
             await hub.Clients.All.SendAsync("ReadingReceived", reading, cancellationToken);
         }
