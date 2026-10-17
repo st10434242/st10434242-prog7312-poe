@@ -26,6 +26,9 @@ public sealed class DeviceState
     // Only used by actuators, null until the valve or pump has reported once
     public bool? IsOn { get; set; }
 
+    // What the operator last asked for, can differ from IsOn until the device picks the command up
+    public bool? CommandedState { get; set; }
+
     public ThresholdBand Band { get; set; } = ThresholdBand.Normal;
 
     public LivenessState Liveness { get; set; } = LivenessState.Stale;

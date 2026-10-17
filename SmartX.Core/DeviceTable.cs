@@ -85,6 +85,28 @@ public sealed class DeviceTable
         }
     }
 
+    public void SetCommandedState(string nodeId, bool? state)
+    {
+        lock (_gate)
+        {
+            if (_devices.TryGetValue(nodeId, out DeviceState? device))
+            {
+                device.CommandedState = state;
+            }
+        }
+    }
+
+    public IReadOnlyList<DeviceDto> Actuators(ActuatorKind kind)
+    {
+        lock (_gate)
+        {
+            return [.. _devices.Values
+                .Where(d => d.Category == SensorCategory.Actuator && CommandTypes.KindFor(d.NodeId) == kind)
+                .OrderBy(d => d.NodeId)
+                .Select(DeviceDto.From)];
+        }
+    }
+
     public void SetLiveness(string nodeId, LivenessState liveness)
     {
         lock (_gate)

@@ -33,6 +33,16 @@ public sealed record CommandRecordDto
     };
 }
 
+public sealed record CommandHistoryDto
+{
+    public required int UndoDepth { get; init; }
+
+    // The one that undo would revert, so the button can say what it will do
+    public CommandRecordDto? NextUndo { get; init; }
+
+    public required IReadOnlyList<CommandRecordDto> Commands { get; init; }
+}
+
 // What a device picks up when it checks in, it only cares about the state to switch to
 public sealed record PendingCommandDto
 {

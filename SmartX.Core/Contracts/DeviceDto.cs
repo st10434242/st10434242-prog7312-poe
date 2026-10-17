@@ -13,6 +13,11 @@ public sealed record DeviceDto
 
     public bool? IsOn { get; init; }
 
+    public bool? CommandedState { get; init; }
+
+    // Null for sensors, lets the dashboard show the right buttons
+    public ActuatorKind? Actuator { get; init; }
+
     public required ThresholdBand Band { get; init; }
 
     public required LivenessState Liveness { get; init; }
@@ -32,6 +37,8 @@ public sealed record DeviceDto
         Category = state.Category,
         LastValue = state.LastValue,
         IsOn = state.IsOn,
+        CommandedState = state.CommandedState,
+        Actuator = state.Category == SensorCategory.Actuator ? CommandTypes.KindFor(state.NodeId) : null,
         Band = state.Band,
         Liveness = state.Liveness,
         AlertState = state.AlertState,

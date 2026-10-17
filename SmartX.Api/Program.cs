@@ -17,6 +17,8 @@ builder.Services.AddSingleton<AlertQueue>();
 builder.Services.AddSingleton<DeviceTable>();
 builder.Services.AddSingleton<TimelineLog>();
 builder.Services.AddSingleton<FaultSet>();
+builder.Services.AddSingleton<CommandHistory>();
+builder.Services.AddSingleton<CommandOutbox>();
 
 builder.Services.AddSingleton(serviceProvider =>
 {
@@ -75,6 +77,7 @@ app.MapDebugEndpoints();
 app.MapAttachmentEndpoints();
 app.MapStreamEndpoints();
 app.MapDeviceEndpoints();
+app.MapCommandEndpoints();
 
 app.MapHub<TelemetryHub>("/hub/telemetry");
 app.MapHealthChecks("/health");
