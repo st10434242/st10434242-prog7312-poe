@@ -15,6 +15,7 @@ public sealed class QueueProcessor(
     DeviceTable devices,
     TimelineLog timeline,
     FaultSet faultSet,
+    PatternLearner learner,
     IHubContext<TelemetryHub> hub,
     ILogger<QueueProcessor> logger) : BackgroundService
 {
@@ -66,6 +67,7 @@ public sealed class QueueProcessor(
         }
 
         alerts.MarkProcessed(work.Alert);
+        learner.Record(OperatorActivity.ForAlert(work.Alert.Kind, work.Alert.NodeId));
 
         await LogEventAsync(new TimelineEventDto
         {

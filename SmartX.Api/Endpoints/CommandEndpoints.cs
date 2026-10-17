@@ -26,6 +26,7 @@ public static class CommandEndpoints
         CommandHistory history,
         CommandOutbox outbox,
         TimelineLog timeline,
+        PatternLearner learner,
         IHubContext<TelemetryHub> hub)
     {
         if (dto.Type == CommandType.Unspecified)
@@ -96,6 +97,7 @@ public static class CommandEndpoints
         }
 
         history.Push(command);
+        learner.Record(OperatorActivity.ForCommand(command.Type, CommandTypes.IsFleetWide(command.Type) ? null : command.Targets[0].NodeId));
 
         CommandRecordDto record = CommandRecordDto.From(command);
 

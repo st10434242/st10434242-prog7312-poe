@@ -19,6 +19,8 @@ builder.Services.AddSingleton<TimelineLog>();
 builder.Services.AddSingleton<FaultSet>();
 builder.Services.AddSingleton<CommandHistory>();
 builder.Services.AddSingleton<CommandOutbox>();
+builder.Services.AddSingleton<PatternLearner>();
+builder.Services.AddSingleton<InsightEngine>();
 
 builder.Services.AddSingleton(serviceProvider =>
 {
@@ -46,6 +48,7 @@ builder.Services.AddSingleton(serviceProvider =>
 
 builder.Services.AddHostedService<StalenessSweeper>();
 builder.Services.AddHostedService<QueueProcessor>();
+builder.Services.AddHostedService<InsightPublisher>();
 
 builder.Services.AddSignalR();
 builder.Services.AddHealthChecks();
@@ -78,6 +81,7 @@ app.MapAttachmentEndpoints();
 app.MapStreamEndpoints();
 app.MapDeviceEndpoints();
 app.MapCommandEndpoints();
+app.MapInsightEndpoints();
 
 app.MapHub<TelemetryHub>("/hub/telemetry");
 app.MapHealthChecks("/health");

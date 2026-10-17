@@ -15,6 +15,7 @@ public sealed class StalenessSweeper(
     TimelineLog timeline,
     FaultSet faultSet,
     AlertQueue alerts,
+    PatternLearner learner,
     IHubContext<TelemetryHub> hub,
     ILogger<StalenessSweeper> logger) : BackgroundService
 {
@@ -80,6 +81,7 @@ public sealed class StalenessSweeper(
 
                 // No packet to store so it skips the queue and is just recorded and pushed
                 alerts.MarkProcessed(alert);
+                learner.Record(OperatorActivity.ForAlert(AlertKind.Disconnected, sensor.NodeId));
                 await hub.Clients.All.SendAsync("AlertRaised", alert, cancellationToken);
 
                 TimelineEventDto timelineEvent = new()

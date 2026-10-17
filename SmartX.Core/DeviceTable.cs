@@ -107,6 +107,18 @@ public sealed class DeviceTable
         }
     }
 
+    // Actuators sharing a sub-zone with a sensor are the ones that can actually do something about it
+    public IReadOnlyList<DeviceDto> ActuatorsAt(string location)
+    {
+        lock (_gate)
+        {
+            return [.. _devices.Values
+                .Where(d => d.Category == SensorCategory.Actuator && string.Equals(d.Location, location, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(d => d.NodeId)
+                .Select(DeviceDto.From)];
+        }
+    }
+
     public void SetLiveness(string nodeId, LivenessState liveness)
     {
         lock (_gate)
