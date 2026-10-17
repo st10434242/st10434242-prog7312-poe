@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Options;
+using SmartX.Core;
 using SmartX.Core.Contracts;
 
 namespace SmartX.Simulator;
@@ -19,8 +20,13 @@ public class Worker(
     {
         List<SimulatedSensor> fleet = FleetBuilder.Build(_options);
 
+        // Grouped by sub-zone so a pump or relay only affects the sensors next to it
+        Dictionary<string, List<SimulatedSensor>> bySubZone = fleet
+            .GroupBy(s => s.Location)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         logger.LogInformation(
-            "Simulating {Count} sensors across {Facility}, publishing to {Url} every {Interval}ms",
+            "Simulating {Count} devices across {Facility}, publishing to {Url} every {Interval}ms",
             fleet.Count,
             _options.Facility,
             _options.ApiBaseUrl,
@@ -41,7 +47,8 @@ public class Worker(
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await PublishTickAsync(client, fleet, tick, stoppingToken);
+            await CollectCommandsAsync(client, fleet, stoppingToken);
+            await PublishTickAsync(client, fleet, bySubZone, tick, stoppingToken);
             tick++;
 
             if (!await DelayAsync(stoppingToken))
@@ -84,7 +91,7 @@ public class Worker(
                 }
             }
 
-            logger.LogInformation("Registered {Count} sensors", fleet.Count);
+            logger.LogInformation("Registered {Count} devices", fleet.Count);
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -98,25 +105,85 @@ public class Worker(
         }
     }
 
+    // Each actuator checks in for its own commands like a real device would, a silent one can't hear the gateway so it doesn't
+    private async Task CollectCommandsAsync(
+        HttpClient client,
+        List<SimulatedSensor> fleet,
+        CancellationToken cancellationToken)
+    {
+        IEnumerable<Task> checkIns = fleet
+            .Where(s => s.Actuator is not null && !s.IsSilent)
+            .Select(s => CollectForAsync(client, s, cancellationToken));
+
+        await Task.WhenAll(checkIns);
+    }
+
+    private async Task CollectForAsync(HttpClient client, SimulatedSensor actuator, CancellationToken cancellationToken)
+    {
+        try
+        {
+            List<PendingCommandDto>? commands = await client.GetFromJsonAsync<List<PendingCommandDto>>(
+                $"/api/commands/pending/{Uri.EscapeDataString(actuator.NodeId)}",
+                cancellationToken);
+
+            // Applied in the order they were sent, so the last one wins
+            foreach (PendingCommandDto command in commands ?? [])
+            {
+                if (actuator.Apply(command))
+                {
+                    logger.LogInformation("{NodeId} switched {State} by command", actuator.NodeId, command.DesiredState ? "on" : "off");
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Shutting down
+        }
+        catch (HttpRequestException)
+        {
+            // Gateway down or forgot the node, the publish loop already handles both
+        }
+    }
+
     private async Task PublishTickAsync(
         HttpClient client,
         List<SimulatedSensor> fleet,
+        Dictionary<string, List<SimulatedSensor>> bySubZone,
         long tick,
         CancellationToken cancellationToken)
     {
+        Dictionary<string, SubZoneConditions> conditions = bySubZone.ToDictionary(g => g.Key, g => ConditionsFor(g.Value));
+
         List<TelemetryPacketDto> batch = [];
         int spikes = 0;
+        int flushed = 0;
 
         foreach (SimulatedSensor sensor in fleet)
         {
             sensor.UpdateFaults(_options.SilenceChance, _options.RecoverChance);
 
-            if (!sensor.ShouldPublish(tick))
+            if (!sensor.IsDue(tick))
             {
                 continue;
             }
 
-            batch.Add(sensor.NextReading(_options.SpikeChance, out bool spiked));
+            TelemetryPacketDto reading = sensor.NextReading(_options, conditions[sensor.Location], out bool spiked);
+
+            if (sensor.IsSilent)
+            {
+                sensor.Hold(reading);
+                continue;
+            }
+
+            // Back online, so anything held while it was quiet goes out first
+            if (sensor.BacklogCount > 0)
+            {
+                List<TelemetryPacketDto> held = sensor.FlushBacklog();
+                batch.AddRange(held);
+                flushed += held.Count;
+            }
+
+            batch.Add(reading);
 
             if (spiked)
             {
@@ -156,10 +223,11 @@ public class Worker(
             }
 
             logger.LogInformation(
-                "Published {Count} readings ({Silent} silent, {Spikes} spiking)",
+                "Published {Count} readings ({Silent} silent, {Spikes} abnormal, {Flushed} from backlog)",
                 result?.Accepted ?? batch.Count,
                 fleet.Count(s => s.IsSilent),
-                spikes);
+                spikes,
+                flushed);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -170,6 +238,20 @@ public class Worker(
             // The loop is the retry, so a gateway that is not up yet just means waiting a tick
             logger.LogWarning("Gateway unreachable: {Message}", ex.Message);
         }
+    }
+
+    // Water only flows if the pump is running and at least one valve is open, the relay feeds the meters
+    private static SubZoneConditions ConditionsFor(List<SimulatedSensor> subZone)
+    {
+        List<SimulatedSensor> valves = [.. subZone.Where(s => s.Actuator == ActuatorKind.Valve)];
+        List<SimulatedSensor> pumps = [.. subZone.Where(s => s.Actuator == ActuatorKind.Pump)];
+        List<SimulatedSensor> relays = [.. subZone.Where(s => s.Actuator == ActuatorKind.Relay)];
+
+        bool pumpRunning = pumps.Count == 0 || pumps.Any(p => p.IsOn);
+        bool valveOpen = valves.Count == 0 || valves.Any(v => v.IsOn);
+        bool powered = relays.Count == 0 || relays.Any(r => r.IsOn);
+
+        return new SubZoneConditions(pumpRunning && valveOpen, powered);
     }
 
     // Returns false when the host is shutting down

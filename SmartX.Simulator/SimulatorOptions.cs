@@ -19,6 +19,12 @@ public sealed class SimulatorOptions
     // Chance per reading that a sensor reports a sudden spike
     public double SpikeChance { get; set; } = 0.02;
 
+    // Chance per reading that a soil sensor suddenly drops, like a blocked dripper
+    public double DropChance { get; set; } = 0.02;
+
+    // How fast soil moves towards wet or dry each reading, bigger means overrides show up quicker
+    public double DryingRate { get; set; } = 0.04;
+
     // Chance per tick that a live sensor goes quiet, and that a quiet one comes back
     public double SilenceChance { get; set; } = 0.005;
 

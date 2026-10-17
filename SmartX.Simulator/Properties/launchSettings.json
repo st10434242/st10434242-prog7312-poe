@@ -7,6 +7,17 @@
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
       }
+    },
+    "SmartX.Simulator (load test)": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "Simulator__Zones": "8",
+        "Simulator__SubZonesPerZone": "4",
+        "Simulator__SensorsPerSubZone": "6",
+        "Simulator__PublishIntervalMs": "250"
+      }
     }
   }
 }
