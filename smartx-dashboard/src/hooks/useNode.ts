@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
-import type { LivenessState, Reading, Sensor, ThresholdBand } from '../api/types'
-import { useTelemetryHub, type HubStatus } from './useTelemetryHub'
+import type { LivenessEvent, LivenessState, Reading, ReadingEvent, Sensor, ThresholdBand } from '../api/types'
+import { useHubEvent, useHubStatus, type HubStatus } from '../context/hubContext'
 
 const MAX_ROWS = 60
 
@@ -62,21 +62,22 @@ export function useNode(nodeId: string): NodeState {
     return () => clearInterval(timer)
   }, [])
 
-  const status = useTelemetryHub({
-    onReading: (event) => {
-      if (event.nodeId !== nodeId) {
-        return
-      }
+  const status = useHubStatus()
 
-      pending.current.push({ timestampUtc: event.timestampUtc, value: event.value })
-      setBand(event.band)
-      setLiveness('Live')
-    },
-    onLiveness: (event) => {
-      if (event.nodeId === nodeId) {
-        setLiveness(event.liveness)
-      }
-    },
+  useHubEvent<ReadingEvent>('ReadingReceived', (event) => {
+    if (event.nodeId !== nodeId) {
+      return
+    }
+
+    pending.current.push({ timestampUtc: event.timestampUtc, value: event.value })
+    setBand(event.band)
+    setLiveness('Live')
+  })
+
+  useHubEvent<LivenessEvent>('LivenessChanged', (event) => {
+    if (event.nodeId === nodeId) {
+      setLiveness(event.liveness)
+    }
   })
 
   return { sensor, readings, band, liveness, loading, error, status }

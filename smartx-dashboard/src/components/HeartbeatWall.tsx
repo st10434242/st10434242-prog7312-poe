@@ -37,7 +37,7 @@ function SensorTile({ tile }: { tile: Tile }) {
     <Link to={`/node/${encodeURIComponent(tile.nodeId)}`} className="tile__link">
     <article
       className={`tile tile--${tile.band.toLowerCase()} tile--${tile.liveness.toLowerCase()}`}
-      aria-label={`${tile.nodeId}, ${formatValue(tile.value, tile.category)}, ${tile.band}, ${tile.liveness}`}
+      aria-label={`${tile.nodeId}, ${formatValue(tile.value, tile.category, tile.nodeId)}, ${tile.band}, ${tile.liveness}`}
     >
       <div className="tile__head">
         <span className="tile__head-left">
@@ -51,12 +51,12 @@ function SensorTile({ tile }: { tile: Tile }) {
         )}
       </div>
 
-      <div className="tile__value mono">{formatValue(tile.value, tile.category)}</div>
+      <div className="tile__value mono">{formatValue(tile.value, tile.category, tile.nodeId)}</div>
 
       <Sparkline values={tile.history} category={tile.category} />
 
       <div className="tile__meta">
-        <span>{categoryLabel(tile.category)}</span>
+        <span>{categoryLabel(tile.category, tile.nodeId)}</span>
         <span className="tile__location">{tile.location}</span>
       </div>
     </article>

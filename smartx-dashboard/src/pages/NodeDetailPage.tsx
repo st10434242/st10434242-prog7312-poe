@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { AttachmentsPanel } from '../components/AttachmentsPanel'
-import { ConnectionIndicator } from '../components/ConnectionIndicator'
 import { Sparkline } from '../components/Sparkline'
 import { useNode } from '../hooks/useNode'
 import { categoryLabel, formatValue } from '../lib/format'
@@ -19,7 +18,7 @@ export function NodeDetailPage() {
 
 function NodeDetail({ nodeId }: { nodeId: string }) {
   const navigate = useNavigate()
-  const { sensor, readings, band, liveness, loading, error, status } = useNode(nodeId)
+  const { sensor, readings, band, liveness, loading, error } = useNode(nodeId)
   const [silenced, setSilenced] = useState(false)
 
   // Read the real state back, otherwise leaving the page and returning resets the button
@@ -82,13 +81,12 @@ function NodeDetail({ nodeId }: { nodeId: string }) {
         <div className="node__badges">
           <span className={`tile__band tile--${band.toLowerCase()}`}>{band}</span>
           <span className="connection__label">{liveness}</span>
-          <ConnectionIndicator status={status} />
         </div>
       </header>
 
       <section className="node__panel">
         <p className="node__panel-title">Latest reading</p>
-        <div className="node__reading">{formatValue(latest?.value ?? null, sensor.category)}</div>
+        <div className="node__reading">{formatValue(latest?.value ?? null, sensor.category, sensor.nodeId)}</div>
         <Sparkline values={values} category={sensor.category} className="spark--detail" />
       </section>
 
@@ -105,7 +103,7 @@ function NodeDetail({ nodeId }: { nodeId: string }) {
           </div>
           <div>
             <dt>Category</dt>
-            <dd>{categoryLabel(sensor.category)}</dd>
+            <dd>{categoryLabel(sensor.category, sensor.nodeId)}</dd>
           </div>
           <div>
             <dt>Expected every</dt>
@@ -136,7 +134,7 @@ function NodeDetail({ nodeId }: { nodeId: string }) {
               {[...readings].reverse().map((reading, index) => (
                 <tr key={`${reading.timestampUtc}-${index}`}>
                   <td>{new Date(reading.timestampUtc).toLocaleTimeString()}</td>
-                  <td>{formatValue(reading.value, sensor.category)}</td>
+                  <td>{formatValue(reading.value, sensor.category, sensor.nodeId)}</td>
                 </tr>
               ))}
             </tbody>

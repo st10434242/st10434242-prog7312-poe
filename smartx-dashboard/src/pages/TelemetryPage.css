@@ -7,13 +7,18 @@
   margin-bottom: var(--space-5);
 }
 
-.telemetry__back {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+.telemetry__eyebrow {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 0;
 }
 
-.telemetry__back:hover {
-  color: var(--accent);
+.telemetry__lead {
+  color: var(--text-muted);
+  margin: 0 0 var(--space-5);
 }
 
 .telemetry__title {

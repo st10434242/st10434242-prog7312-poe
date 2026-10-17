@@ -1,24 +1,11 @@
 import { HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr'
-import { useEffect, useRef, useState } from 'react'
-import type { LivenessEvent, ReadingEvent } from '../api/types'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { HUB_EVENTS, HubContext, type HubEvent, type HubHandler, type HubStatus } from './hubContext'
 
-export type HubStatus = 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
-
-interface Handlers {
-  onReading?: (event: ReadingEvent) => void
-  onLiveness?: (event: LivenessEvent) => void
-}
-
-export function useTelemetryHub(handlers: Handlers): HubStatus {
+// One connection for the whole app, so switching pages never drops it or opens a second one
+export function HubProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<HubStatus>('connecting')
-
-  // Held in a ref so a re-render does not tear down and rebuild the connection.
-  // Assigned in an effect rather than during render, which concurrent rendering does not allow.
-  const latest = useRef(handlers)
-
-  useEffect(() => {
-    latest.current = handlers
-  })
+  const listeners = useRef(new Map<HubEvent, Set<HubHandler>>())
 
   useEffect(() => {
     let cancelled = false
@@ -31,8 +18,11 @@ export function useTelemetryHub(handlers: Handlers): HubStatus {
       })
       .build()
 
-    connection.on('ReadingReceived', (event: ReadingEvent) => latest.current.onReading?.(event))
-    connection.on('LivenessChanged', (event: LivenessEvent) => latest.current.onLiveness?.(event))
+    HUB_EVENTS.forEach((event) => {
+      connection.on(event, (payload: unknown) => {
+        listeners.current.get(event)?.forEach((handler) => handler(payload))
+      })
+    })
 
     connection.onreconnecting(() => setStatus('reconnecting'))
     connection.onreconnected(() => setStatus('connected'))
@@ -53,5 +43,22 @@ export function useTelemetryHub(handlers: Handlers): HubStatus {
     }
   }, [])
 
-  return status
+  const subscribe = useCallback((event: HubEvent, handler: HubHandler) => {
+    let handlers = listeners.current.get(event)
+
+    if (!handlers) {
+      handlers = new Set()
+      listeners.current.set(event, handlers)
+    }
+
+    handlers.add(handler)
+
+    return () => {
+      handlers.delete(handler)
+    }
+  }, [])
+
+  const value = useMemo(() => ({ status, subscribe }), [status, subscribe])
+
+  return <HubContext.Provider value={value}>{children}</HubContext.Provider>
 }

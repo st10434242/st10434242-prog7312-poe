@@ -1,16 +1,16 @@
 import { useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ConnectionIndicator } from '../components/ConnectionIndicator'
+import { useSearchParams } from 'react-router-dom'
 import { FleetSummary } from '../components/FleetSummary'
 import { HeartbeatWall } from '../components/HeartbeatWall'
 import { RegisterSensorForm } from '../components/RegisterSensorForm'
 import { ZoneNav } from '../components/ZoneNav'
-import { useFleet } from '../hooks/useFleet'
+import { useFleetContext } from '../context/fleetContext'
 import { findZone, useTopology } from '../hooks/useTopology'
 import './TelemetryPage.css'
 
 export function TelemetryPage() {
-  const { tiles, loading, error, status, refresh } = useFleet()
+  // From the provider, so coming back to this page doesn't reload the whole fleet
+  const { tiles, loading, error, refresh } = useFleetContext()
   const root = useTopology(tiles.length)
 
   // Kept in the URL so the browser's back button walks back up the hierarchy
@@ -41,12 +41,9 @@ export function TelemetryPage() {
     <main className="page">
       <header className="telemetry__header">
         <div>
-          <Link to="/" className="telemetry__back">
-            Back to pillars
-          </Link>
+          <p className="telemetry__eyebrow">Module 01</p>
           <h1 className="telemetry__title">Sensor Data Ingestion and Telemetry</h1>
         </div>
-        <ConnectionIndicator status={status} />
       </header>
 
       <RegisterSensorForm onRegistered={refresh} />

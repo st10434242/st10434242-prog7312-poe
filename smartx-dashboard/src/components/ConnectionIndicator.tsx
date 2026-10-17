@@ -1,4 +1,4 @@
-import type { HubStatus } from '../hooks/useTelemetryHub'
+import type { HubStatus } from '../context/hubContext'
 import './ConnectionIndicator.css'
 
 const labels: Record<HubStatus, string> = {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
-import type { LivenessState, SensorCategory, SensorValue, ThresholdBand } from '../api/types'
-import { useTelemetryHub, type HubStatus } from './useTelemetryHub'
+import type { LivenessEvent, LivenessState, ReadingEvent, SensorCategory, SensorValue, ThresholdBand } from '../api/types'
+import { useHubEvent, useHubStatus, type HubStatus } from '../context/hubContext'
 
 // Roughly a tile's width in points, past which older readings are not worth drawing
 const HISTORY_POINTS = 40
@@ -18,7 +18,7 @@ export interface Tile {
   history: number[]
 }
 
-interface Fleet {
+export interface Fleet {
   tiles: Tile[]
   loading: boolean
   error: string | null
@@ -146,29 +146,30 @@ export function useFleet(): Fleet {
     return () => clearInterval(timer)
   }, [])
 
-  const status = useTelemetryHub({
-    onReading: (event) => {
-      pending.current.set(event.nodeId, {
-        ...pending.current.get(event.nodeId),
-        value: event.value,
-        band: event.band,
-        // A reading arriving is itself proof of life, the server sends no separate Live event
-        liveness: 'Live',
-        lastSeenUtc: event.timestampUtc,
-      })
+  const status = useHubStatus()
 
-      pendingHistory.current.set(event.nodeId, [
-        ...(pendingHistory.current.get(event.nodeId) ?? []),
-        toNumber(event.value),
-      ])
-    },
-    onLiveness: (event) => {
-      pending.current.set(event.nodeId, {
-        ...pending.current.get(event.nodeId),
-        liveness: event.liveness,
-        lastSeenUtc: event.lastSeenUtc,
-      })
-    },
+  useHubEvent<ReadingEvent>('ReadingReceived', (event) => {
+    pending.current.set(event.nodeId, {
+      ...pending.current.get(event.nodeId),
+      value: event.value,
+      band: event.band,
+      // A reading arriving is itself proof of life, the server sends no separate Live event
+      liveness: 'Live',
+      lastSeenUtc: event.timestampUtc,
+    })
+
+    pendingHistory.current.set(event.nodeId, [
+      ...(pendingHistory.current.get(event.nodeId) ?? []),
+      toNumber(event.value),
+    ])
+  })
+
+  useHubEvent<LivenessEvent>('LivenessChanged', (event) => {
+    pending.current.set(event.nodeId, {
+      ...pending.current.get(event.nodeId),
+      liveness: event.liveness,
+      lastSeenUtc: event.lastSeenUtc,
+    })
   })
 
   return {
