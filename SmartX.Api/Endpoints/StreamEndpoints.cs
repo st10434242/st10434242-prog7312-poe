@@ -14,6 +14,7 @@ public static class StreamEndpoints
         group.MapGet("/alerts", GetAlerts);
         group.MapGet("/timeline/{nodeId}", GetTimeline);
         group.MapGet("/events", GetEvents);
+        group.MapGet("/faults", GetFaults);
 
         return group;
     }
@@ -60,6 +61,8 @@ public static class StreamEndpoints
 
         return Results.Ok(timeline.Range(nodeId, from, to, Math.Clamp(limit, 1, 500)));
     }
+
+    private static IResult GetFaults(FaultSet faultSet) => Results.Ok(faultSet.Snapshot());
 
     private static IResult GetEvents(TimelineLog timeline, string? nodeId = null, int limit = 100) =>
         Results.Ok(timeline.RecentEvents(Math.Clamp(limit, 1, 1000), nodeId));

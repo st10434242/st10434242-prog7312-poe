@@ -14,6 +14,7 @@ public sealed class QueueProcessor(
     NodeStateTracker tracker,
     DeviceTable devices,
     TimelineLog timeline,
+    FaultSet faultSet,
     IHubContext<TelemetryHub> hub,
     ILogger<QueueProcessor> logger) : BackgroundService
 {
@@ -90,17 +91,18 @@ public sealed class QueueProcessor(
                 return;
             }
 
-            // A packet just arrived so the node is live, if it was stale before then it has come back
-            LivenessState before = tracker.Get(reading.NodeId);
+            // A packet just arrived so the node is live
+            tracker.Update(reading.NodeId, LivenessState.Live);
 
-            if (tracker.Update(reading.NodeId, LivenessState.Live) && before == LivenessState.Stale)
+            // Only counts as back online if it was actually in the disconnected set
+            if (faultSet.MarkReconnected(reading.NodeId))
             {
                 await LogEventAsync(new TimelineEventDto
                 {
                     TimestampUtc = reading.TimestampUtc,
                     Kind = TimelineEventKind.Online,
                     NodeId = reading.NodeId,
-                    Message = $"{reading.NodeId} is online"
+                    Message = $"{reading.NodeId} is reporting again"
                 }, cancellationToken);
             }
 

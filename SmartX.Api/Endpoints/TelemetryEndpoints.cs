@@ -24,7 +24,8 @@ public static class TelemetryEndpoints
         SensorRegistry registry,
         FaultInjector faults,
         TelemetryQueue queue,
-        AlertQueue alerts)
+        AlertQueue alerts,
+        FaultSet faultSet)
     {
         Dictionary<string, string[]> errors = Validate(dto, registry);
 
@@ -39,7 +40,7 @@ public static class TelemetryEndpoints
             return Results.Accepted();
         }
 
-        if (!Route(dto, queue, alerts))
+        if (!Route(dto, queue, alerts, faultSet))
         {
             return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
@@ -53,7 +54,8 @@ public static class TelemetryEndpoints
         SensorRegistry registry,
         FaultInjector faults,
         TelemetryQueue queue,
-        AlertQueue alerts)
+        AlertQueue alerts,
+        FaultSet faultSet)
     {
         int accepted = 0;
 
@@ -64,7 +66,7 @@ public static class TelemetryEndpoints
                 continue;
             }
 
-            if (faults.IsSilenced(dto.NodeId) || Route(dto, queue, alerts))
+            if (faults.IsSilenced(dto.NodeId) || Route(dto, queue, alerts, faultSet))
             {
                 accepted++;
             }
@@ -77,12 +79,20 @@ public static class TelemetryEndpoints
         });
     }
 
-    // Anything that trips an alert bypasses the normal queue, everything else waits its turn
-    private static bool Route(TelemetryPacketDto dto, TelemetryQueue queue, AlertQueue alerts)
+    // Anything that trips a new alert bypasses the normal queue, everything else waits its turn
+    private static bool Route(TelemetryPacketDto dto, TelemetryQueue queue, AlertQueue alerts, FaultSet faultSet)
     {
         AlertDto? alert = AlertClassifier.Classify(dto);
 
         if (alert is null)
+        {
+            // Back in range so the next problem on this node counts as new
+            faultSet.ClearErrors(dto.NodeId);
+            return queue.TryEnqueue(dto);
+        }
+
+        // Already reported and not cleared yet, so it is just a normal reading now
+        if (!faultSet.TryRaise(alert))
         {
             return queue.TryEnqueue(dto);
         }

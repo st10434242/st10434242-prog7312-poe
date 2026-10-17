@@ -13,6 +13,8 @@ public sealed class StalenessSweeper(
     NodeStateTracker tracker,
     DeviceTable devices,
     TimelineLog timeline,
+    FaultSet faultSet,
+    AlertQueue alerts,
     IHubContext<TelemetryHub> hub,
     ILogger<StalenessSweeper> logger) : BackgroundService
 {
@@ -64,9 +66,22 @@ public sealed class StalenessSweeper(
                 },
                 cancellationToken);
 
-            // Only a full disconnect goes in the history, dimmed is too noisy
-            if (state == LivenessState.Stale)
+            // Only a full disconnect counts, and the set makes sure it is only raised once per dropout
+            if (state == LivenessState.Stale && faultSet.MarkDisconnected(sensor.NodeId))
             {
+                AlertDto alert = new()
+                {
+                    NodeId = sensor.NodeId,
+                    Kind = AlertKind.Disconnected,
+                    Severity = AlertSeverity.Critical,
+                    Message = $"{sensor.NodeId} has stopped reporting",
+                    RaisedAtUtc = now
+                };
+
+                // No packet to store so it skips the queue and is just recorded and pushed
+                alerts.MarkProcessed(alert);
+                await hub.Clients.All.SendAsync("AlertRaised", alert, cancellationToken);
+
                 TimelineEventDto timelineEvent = new()
                 {
                     TimestampUtc = now,

@@ -16,6 +16,7 @@ builder.Services.AddSingleton<TelemetryQueue>();
 builder.Services.AddSingleton<AlertQueue>();
 builder.Services.AddSingleton<DeviceTable>();
 builder.Services.AddSingleton<TimelineLog>();
+builder.Services.AddSingleton<FaultSet>();
 
 builder.Services.AddSingleton(serviceProvider =>
 {
