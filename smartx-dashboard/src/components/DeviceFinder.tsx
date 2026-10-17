@@ -1,5 +1,5 @@
 import { api } from '../api/client'
-import type { DeviceAlertState, SensorCategory } from '../api/types'
+import type { DeviceAlertState, Insight, SensorCategory } from '../api/types'
 import { useDeviceSearch } from '../hooks/useDeviceSearch'
 import { useSessionState } from '../hooks/useSessionState'
 import { categoryLabel, formatValue } from '../lib/format'
@@ -23,10 +23,11 @@ const stateLabels: Record<DeviceAlertState, string> = {
 
 interface Props {
   selected: string | null
+  flagged: Map<string, Insight>
   onSelect: (nodeId: string) => void
 }
 
-export function DeviceFinder({ selected, onSelect }: Props) {
+export function DeviceFinder({ selected, flagged, onSelect }: Props) {
   const [search, setSearch] = useSessionState('finder.search', '')
   const [category, setCategory] = useSessionState<SensorCategory | ''>('finder.category', '')
   const [alertState, setAlertState] = useSessionState<DeviceAlertState | ''>('finder.state', '')
@@ -38,6 +39,9 @@ export function DeviceFinder({ selected, onSelect }: Props) {
   })
 
   const filtered = search.trim() !== '' || category !== '' || alertState !== ''
+
+  // Devices the engine flagged go to the top, so they are in front of you before you search for them
+  const ordered = [...devices].sort((a, b) => (flagged.get(b.nodeId)?.score ?? 0) - (flagged.get(a.nodeId)?.score ?? 0))
 
   const open = (nodeId: string) => {
     onSelect(nodeId)
@@ -129,19 +133,24 @@ export function DeviceFinder({ selected, onSelect }: Props) {
             {devices.length} device{devices.length === 1 ? '' : 's'}
           </p>
           <ul className="results">
-            {devices.map((device) => {
+            {ordered.map((device) => {
               const value = device.category === 'Actuator' ? device.isOn : device.lastValue
+              const flag = flagged.get(device.nodeId)
 
               return (
                 <li key={device.nodeId}>
                   <button
                     type="button"
-                    className={`result ${selected === device.nodeId ? 'result--selected' : ''}`}
+                    className={`result ${selected === device.nodeId ? 'result--selected' : ''} ${flag ? 'result--flagged' : ''}`}
                     onClick={() => open(device.nodeId)}
+                    title={flag ? `Flagged: ${flag.title}` : undefined}
                   >
                     <span className={`result__dot result__dot--${device.alertState.toLowerCase()}`} aria-hidden="true" />
                     <span className="result__main">
-                      <span className="result__id mono">{device.nodeId}</span>
+                      <span className="result__id mono">
+                        {device.nodeId}
+                        {flag && <span className="flag">Flagged</span>}
+                      </span>
                       <span className="result__meta">
                         {categoryLabel(device.category, device.nodeId)} · {device.location.split('/').slice(1).join(' / ')}
                       </span>

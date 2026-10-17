@@ -97,3 +97,14 @@
     flex-basis: 100%;
   }
 }
+
+.shell__badge {
+  min-width: 1.4em;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+}

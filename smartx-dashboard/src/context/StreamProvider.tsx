@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api } from '../api/client'
-import type { Alert, Faults, QueueStats, ReadingEvent, TimelineEvent } from '../api/types'
+import type { Alert, Faults, Insight, QueueStats, ReadingEvent, TimelineEvent } from '../api/types'
 import { useHubEvent } from './hubContext'
 import { StreamContext, type StreamPacket } from './streamContext'
 
@@ -16,6 +16,7 @@ export function StreamProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<TimelineEvent[]>([])
   const [stats, setStats] = useState<QueueStats | null>(null)
   const [faults, setFaults] = useState<Faults | null>(null)
+  const [insights, setInsights] = useState<Insight[]>([])
 
   const pending = useRef<StreamPacket[]>([])
   const seq = useRef(0)
@@ -32,6 +33,12 @@ export function StreamProvider({ children }: { children: ReactNode }) {
     api
       .getEvents(MAX_EVENTS)
       .then((recent) => !cancelled && setEvents(recent))
+      .catch(() => {})
+
+    // The publisher only pushes when the list changes, so the first lot has to be asked for
+    api
+      .getInsights()
+      .then((current) => !cancelled && setInsights(current))
       .catch(() => {})
 
     return () => {
@@ -97,9 +104,15 @@ export function StreamProvider({ children }: { children: ReactNode }) {
     setEvents((previous) => [event, ...previous].slice(0, MAX_EVENTS))
   })
 
+  useHubEvent<Insight[]>('InsightsUpdated', setInsights)
+
+  const removeInsight = useCallback((id: string) => {
+    setInsights((previous) => previous.filter((insight) => insight.id !== id))
+  }, [])
+
   const value = useMemo(
-    () => ({ packets, alerts, events, stats, faults }),
-    [packets, alerts, events, stats, faults],
+    () => ({ packets, alerts, events, stats, faults, insights, removeInsight }),
+    [packets, alerts, events, stats, faults, insights, removeInsight],
   )
 
   return <StreamContext.Provider value={value}>{children}</StreamContext.Provider>

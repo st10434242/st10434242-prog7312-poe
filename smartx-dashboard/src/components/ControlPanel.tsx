@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ApiError, api } from '../api/client'
-import type { Device, IssueCommand } from '../api/types'
+import type { Device, Insight, IssueCommand } from '../api/types'
 import { useToast } from '../context/toastContext'
 import { commandFor, commandLabels, effectiveState, isPending } from '../lib/commands'
 import { categoryLabel, formatValue } from '../lib/format'
@@ -11,10 +11,11 @@ interface Props {
   error: string | null
   markCommanded: (nodeIds: string[], state: boolean) => void
   refresh: () => void
+  flagged: Map<string, Insight>
 }
 
 // Manual overrides grouped by sub-zone, since that is how an operator thinks about the farm
-export function ControlPanel({ devices, loading, error, markCommanded, refresh }: Props) {
+export function ControlPanel({ devices, loading, error, markCommanded, refresh, flagged }: Props) {
   const toast = useToast()
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const [confirmShut, setConfirmShut] = useState(false)
@@ -99,9 +100,11 @@ export function ControlPanel({ devices, loading, error, markCommanded, refresh }
                 const on = effectiveState(device)
                 const pending = isPending(device)
                 const offline = device.liveness === 'Stale'
+                const suggestion = flagged.get(device.nodeId)
+                const suggested = suggestion?.command?.nodeId === device.nodeId ? suggestion : null
 
                 return (
-                  <li key={device.nodeId} className={`control ${offline ? 'control--offline' : ''}`}>
+                  <li key={device.nodeId} className={`control ${offline ? 'control--offline' : ''} ${suggested ? 'control--suggested' : ''}`}>
                     <span className="control__info">
                       <span className="control__id mono">{device.nodeId}</span>
                       <span className="control__state">
@@ -109,6 +112,7 @@ export function ControlPanel({ devices, loading, error, markCommanded, refresh }
                         {pending && <span className="control__pending"> → {formatValue(device.commandedState, device.category, device.nodeId)}</span>}
                         {offline && <span className="control__offline"> · offline, will apply when it is back</span>}
                       </span>
+                      {suggested?.command && <span className="control__suggested">Suggested: {commandLabels[suggested.command.type].toLowerCase()}</span>}
                     </span>
 
                     <button

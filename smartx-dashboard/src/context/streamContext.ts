@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { Alert, Faults, QueueStats, ReadingEvent, TimelineEvent } from '../api/types'
+import type { Alert, Faults, Insight, QueueStats, ReadingEvent, TimelineEvent } from '../api/types'
 
 // A reading as it shows in the live feed, the seq gives React a stable key since node+time can repeat
 export interface StreamPacket extends ReadingEvent {
@@ -12,6 +12,9 @@ export interface Stream {
   events: TimelineEvent[]
   stats: QueueStats | null
   faults: Faults | null
+  insights: Insight[]
+  // Takes one off the list straight away after it is applied or dismissed, the next push confirms it
+  removeInsight: (id: string) => void
 }
 
 export const StreamContext = createContext<Stream | null>(null)
