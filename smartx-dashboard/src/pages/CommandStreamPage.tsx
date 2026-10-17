@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { AlertPanel } from '../components/AlertPanel'
 import { CommandHistoryPanel } from '../components/CommandHistoryPanel'
 import { ControlPanel } from '../components/ControlPanel'
+import { DeviceFinder } from '../components/DeviceFinder'
 import { EventFeed } from '../components/EventFeed'
 import { PacketFeed } from '../components/PacketFeed'
 import { StreamStats } from '../components/StreamStats'
@@ -72,6 +73,7 @@ export function CommandStreamPage() {
         </div>
 
         <div className="stream-grid__side">
+          <DeviceFinder selected={nodeId} onSelect={select} />
           <CommandHistoryPanel history={commands.history} refresh={commands.refresh} />
           <AlertPanel alerts={alerts} faults={faults} selected={nodeId} onSelect={select} />
           <EventFeed events={events} />

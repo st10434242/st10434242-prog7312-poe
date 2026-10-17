@@ -149,9 +149,7 @@ public sealed class DeviceTable
                     continue;
                 }
 
-                if (!string.IsNullOrWhiteSpace(search) &&
-                    !state.NodeId.Contains(search, StringComparison.OrdinalIgnoreCase) &&
-                    !state.Location.Contains(search, StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrWhiteSpace(search) && !Matches(state, search))
                 {
                     continue;
                 }
@@ -162,5 +160,24 @@ public sealed class DeviceTable
             // Worst devices first so problems are at the top of the list
             return [.. matches.OrderByDescending(d => d.AlertState).ThenBy(d => d.NodeId)];
         }
+    }
+
+    // Node ids match anywhere, locations only from the start of a level so Zone1 doesn't also find SubZone1
+    private static bool Matches(DeviceState state, string search)
+    {
+        if (state.NodeId.Contains(search, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Someone typing a path like Zone1/Sub clearly means part of the location
+        if (search.Contains(DeploymentPath.Separator))
+        {
+            return state.Location.Contains(search, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return state.Location
+            .Split(DeploymentPath.Separator)
+            .Any(level => level.StartsWith(search, StringComparison.OrdinalIgnoreCase));
     }
 }

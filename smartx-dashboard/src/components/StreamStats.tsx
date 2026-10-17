@@ -13,7 +13,7 @@ export function StreamStats({ stats, faults }: Props) {
     { label: 'Queue depth', value: stats ? `${stats.depth}` : '—', note: stats ? `${fill}% of ${stats.capacity.toLocaleString()}` : '' },
     { label: 'Packets / sec', value: stats ? `${stats.packetsPerSecond}` : '—', note: stats ? `${stats.processed.toLocaleString()} processed` : '' },
     { label: 'Priority lane', value: stats ? `${stats.alertDepth}` : '—', note: stats ? `${stats.alertsProcessed} alerts jumped the queue` : '' },
-    { label: 'Critical', value: stats ? `${stats.criticalAlerts}` : '—', note: stats ? `${stats.warningAlerts} warnings` : '', tone: 'alert' },
+    { label: 'Critical', value: stats ? `${stats.criticalAlerts}` : '—', note: stats ? `${stats.warningAlerts} warning${stats.warningAlerts === 1 ? '' : 's'}` : '', tone: 'alert' },
     { label: 'Disconnected', value: faults ? `${faults.disconnected.length}` : '—', note: faults ? `${faults.activeErrors.length} active error${faults.activeErrors.length === 1 ? '' : 's'}` : '', tone: faults && faults.disconnected.length > 0 ? 'stale' : undefined },
     { label: 'Duplicates blocked', value: faults ? `${faults.suppressedDuplicates}` : '—', note: 'repeat alerts the sets ignored' },
   ]
