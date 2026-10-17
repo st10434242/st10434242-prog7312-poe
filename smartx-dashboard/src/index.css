@@ -95,3 +95,33 @@ button {
     padding: var(--space-5) var(--space-3) var(--space-6);
   }
 }
+
+/* Shared text input and select, same look as the register form */
+.input {
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  min-width: 0;
+}
+
+.input:focus {
+  border-color: var(--accent);
+}
+
+/* Hidden on screen but still read out, for labels the layout already makes obvious */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -1,10 +1,39 @@
+import { useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { AlertPanel } from '../components/AlertPanel'
+import { EventFeed } from '../components/EventFeed'
+import { PacketFeed } from '../components/PacketFeed'
+import { StreamStats } from '../components/StreamStats'
+import { TimelinePanel } from '../components/TimelinePanel'
 import { useFleetContext } from '../context/fleetContext'
+import { useStream } from '../context/streamContext'
+import './CommandStreamPage.css'
 import './TelemetryPage.css'
 
-// Shell for now, the live stream, overrides and insights get added on top of this
 export function CommandStreamPage() {
-  const { tiles, loading } = useFleetContext()
-  const actuators = tiles.filter((tile) => tile.category === 'Actuator').length
+  const { tiles } = useFleetContext()
+  const { packets, alerts, events, stats, faults } = useStream()
+
+  // Selected device and range live in the URL so a refresh or the back button keeps them
+  const [params, setParams] = useSearchParams()
+  const rangeParam = params.get('range')
+  const rangeMinutes = rangeParam === 'all' ? null : Number(rangeParam ?? 15)
+
+  // Nothing picked yet so start on the first soil sensor, not the latest alert or the chart would keep jumping
+  const firstSoil = tiles
+    .filter((tile) => tile.category === 'Environmental')
+    .sort((a, b) => a.nodeId.localeCompare(b.nodeId))[0]
+  const nodeId = params.get('node') ?? firstSoil?.nodeId ?? null
+
+  const categories = useMemo(() => new Map(tiles.map((tile) => [tile.nodeId, tile.category])), [tiles])
+
+  const update = (key: string, value: string) => {
+    const next = new URLSearchParams(params)
+    next.set(key, value)
+    setParams(next, { replace: key === 'range' })
+  }
+
+  const select = (id: string) => update('node', id)
 
   return (
     <main className="page">
@@ -15,11 +44,25 @@ export function CommandStreamPage() {
         </div>
       </header>
 
-      <p className="telemetry__lead">
-        {loading
-          ? 'Loading the fleet…'
-          : `${tiles.length} devices registered, ${actuators} of them can take override commands.`}
-      </p>
+      <StreamStats stats={stats} faults={faults} />
+
+      <div className="stream-grid">
+        <div className="stream-grid__main">
+          <TimelinePanel
+            tiles={tiles}
+            nodeId={nodeId}
+            rangeMinutes={rangeMinutes}
+            onSelect={select}
+            onRange={(minutes) => update('range', minutes === null ? 'all' : String(minutes))}
+          />
+          <PacketFeed packets={packets} categoryOf={(id) => categories.get(id)} onSelect={select} />
+        </div>
+
+        <div className="stream-grid__side">
+          <AlertPanel alerts={alerts} faults={faults} selected={nodeId} onSelect={select} />
+          <EventFeed events={events} />
+        </div>
+      </div>
     </main>
   )
 }

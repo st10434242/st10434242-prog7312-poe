@@ -1,8 +1,21 @@
 import type {
+  Activity,
+  Alert,
   Attachment,
+  CommandHistory,
+  CommandRecord,
+  Device,
+  DeviceFilter,
+  Faults,
+  Insight,
+  IssueCommand,
   NodeHistory,
+  NodeTimeline,
+  Pattern,
+  QueueStats,
   Sensor,
   SensorRegistration,
+  TimelineEvent,
   Topology,
   ValidationProblem,
 } from './types'
@@ -93,4 +106,60 @@ export const api = {
 
   restoreNode: (nodeId: string) =>
     request<void>(`/api/debug/silence/${encodeURIComponent(nodeId)}`, { method: 'DELETE' }),
+
+  getStats: () => request<QueueStats>('/api/stream/stats'),
+
+  getAlerts: (limit = 50) => request<Alert[]>(`/api/stream/alerts?limit=${limit}`),
+
+  getFaults: () => request<Faults>('/api/stream/faults'),
+
+  getEvents: (limit = 60) => request<TimelineEvent[]>(`/api/stream/events?limit=${limit}`),
+
+  getTimeline: (nodeId: string, from?: Date, limit = 300) => {
+    const query = new URLSearchParams({ limit: String(limit) })
+
+    if (from) {
+      query.set('from', from.toISOString())
+    }
+
+    return request<NodeTimeline>(`/api/stream/timeline/${encodeURIComponent(nodeId)}?${query}`)
+  },
+
+  getDevices: (filter: DeviceFilter = {}) => {
+    const query = new URLSearchParams()
+
+    // Only send what is set, the gateway treats a missing filter as match everything
+    Object.entries(filter).forEach(([key, value]) => {
+      if (value) {
+        query.set(key, value)
+      }
+    })
+
+    return request<Device[]>(`/api/devices?${query}`)
+  },
+
+  issueCommand: (command: IssueCommand) =>
+    request<CommandRecord>('/api/commands', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(command),
+    }),
+
+  undoCommand: () => request<CommandRecord>('/api/commands/undo', { method: 'POST' }),
+
+  getCommandHistory: () => request<CommandHistory>('/api/commands/history'),
+
+  getInsights: () => request<Insight[]>('/api/insights'),
+
+  recordActivity: (activity: Activity) =>
+    request<void>('/api/insights/activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(activity),
+    }),
+
+  dismissInsight: (id: string) =>
+    request<void>(`/api/insights/${encodeURIComponent(id)}/dismiss`, { method: 'POST' }),
+
+  getPatterns: () => request<Pattern[]>('/api/insights/patterns'),
 }

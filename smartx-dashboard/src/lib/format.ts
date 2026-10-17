@@ -1,6 +1,4 @@
-import type { SensorCategory, SensorValue } from '../api/types'
-
-export type ActuatorKind = 'Valve' | 'Pump' | 'Relay' | 'Generic'
+import type { ActuatorKind, SensorCategory, SensorValue } from '../api/types'
 
 // Same naming rule the gateway uses to tell actuators apart
 export function actuatorKindFor(nodeId: string): ActuatorKind {
@@ -61,6 +59,14 @@ export function categoryLabel(category: SensorCategory, nodeId = ''): string {
     default:
       return category
   }
+}
+
+// Local wall clock time, seconds plus milliseconds for the packet feed where several land in the same second
+export function clockTime(iso: string, precise = false): string {
+  const date = new Date(iso)
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+
+  return precise ? `${time}.${String(date.getMilliseconds()).padStart(3, '0')}` : time
 }
 
 export function formatBytes(bytes: number): string {
