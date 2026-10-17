@@ -348,3 +348,228 @@
   font-size: 0.72rem;
   color: var(--text-dim);
 }
+
+/* Buttons */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--border-bright);
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.button--primary {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-raised));
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.button--danger {
+  background: var(--alert);
+  border-color: var(--alert);
+  color: #fff;
+  font-weight: 600;
+}
+
+.button--danger-outline {
+  color: var(--alert);
+  border-color: color-mix(in srgb, var(--alert) 50%, transparent);
+}
+
+.confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Override panel, one card per sub-zone */
+.zones {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.zone-card {
+  padding: var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.zone-card__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: var(--space-2);
+}
+
+.controls {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.control__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.control__id {
+  font-size: 0.8rem;
+}
+
+.control__state {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.control__pending {
+  color: var(--accent);
+}
+
+.control__offline {
+  color: var(--caution);
+}
+
+.control--offline .control__id {
+  color: var(--text-dim);
+}
+
+/* Toggle switch, the label on the button says what clicking it will do */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-bright);
+  border-radius: 999px;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.switch--on {
+  background: color-mix(in srgb, var(--normal) 30%, var(--surface-raised));
+  border-color: var(--normal);
+}
+
+.switch--on .switch__thumb {
+  transform: translateX(16px);
+  background: var(--normal);
+}
+
+.switch:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switch__thumb {
+    transition: none;
+  }
+}
+
+/* Command history and undo */
+.undo {
+  width: 100%;
+  justify-content: flex-start;
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  font-size: 0.85rem;
+}
+
+.undo__target {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.undo__key {
+  margin-left: auto;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.history__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.history__row--reverted .history__what,
+.history__row--reverted .history__target {
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+
+.history__tag {
+  margin-left: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-bright);
+  border-radius: 999px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  display: inline-block;
+}
+
+.history__target,
+.history__time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}

@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell'
 import { FleetProvider } from './context/FleetProvider'
 import { HubProvider } from './context/HubProvider'
 import { StreamProvider } from './context/StreamProvider'
+import { ToastProvider } from './context/ToastProvider'
 import { CommandStreamPage } from './pages/CommandStreamPage'
 import { LandingPage } from './pages/LandingPage'
 import { NodeDetailPage } from './pages/NodeDetailPage'
@@ -15,17 +16,19 @@ export default function App() {
     <HubProvider>
       <FleetProvider>
         <StreamProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route element={<AppShell />}>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/telemetry" element={<TelemetryPage />} />
-                <Route path="/commands" element={<CommandStreamPage />} />
-                <Route path="/node/:nodeId" element={<NodeDetailPage />} />
-                <Route path="*" element={<NotFoundPage />} />
-              </Route>
-            </Routes>
-          </BrowserRouter>
+          <ToastProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route element={<AppShell />}>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/telemetry" element={<TelemetryPage />} />
+                  <Route path="/commands" element={<CommandStreamPage />} />
+                  <Route path="/node/:nodeId" element={<NodeDetailPage />} />
+                  <Route path="*" element={<NotFoundPage />} />
+                </Route>
+              </Routes>
+            </BrowserRouter>
+          </ToastProvider>
         </StreamProvider>
       </FleetProvider>
     </HubProvider>

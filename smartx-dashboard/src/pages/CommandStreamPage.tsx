@@ -1,18 +1,24 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AlertPanel } from '../components/AlertPanel'
+import { CommandHistoryPanel } from '../components/CommandHistoryPanel'
+import { ControlPanel } from '../components/ControlPanel'
 import { EventFeed } from '../components/EventFeed'
 import { PacketFeed } from '../components/PacketFeed'
 import { StreamStats } from '../components/StreamStats'
 import { TimelinePanel } from '../components/TimelinePanel'
 import { useFleetContext } from '../context/fleetContext'
 import { useStream } from '../context/streamContext'
+import { useActuators } from '../hooks/useActuators'
+import { useCommandHistory } from '../hooks/useCommandHistory'
 import './CommandStreamPage.css'
 import './TelemetryPage.css'
 
 export function CommandStreamPage() {
   const { tiles } = useFleetContext()
   const { packets, alerts, events, stats, faults } = useStream()
+  const actuators = useActuators()
+  const commands = useCommandHistory()
 
   // Selected device and range live in the URL so a refresh or the back button keeps them
   const [params, setParams] = useSearchParams()
@@ -55,10 +61,18 @@ export function CommandStreamPage() {
             onSelect={select}
             onRange={(minutes) => update('range', minutes === null ? 'all' : String(minutes))}
           />
+          <ControlPanel
+            devices={actuators.devices}
+            loading={actuators.loading}
+            error={actuators.error}
+            markCommanded={actuators.markCommanded}
+            refresh={actuators.refresh}
+          />
           <PacketFeed packets={packets} categoryOf={(id) => categories.get(id)} onSelect={select} />
         </div>
 
         <div className="stream-grid__side">
+          <CommandHistoryPanel history={commands.history} refresh={commands.refresh} />
           <AlertPanel alerts={alerts} faults={faults} selected={nodeId} onSelect={select} />
           <EventFeed events={events} />
         </div>
