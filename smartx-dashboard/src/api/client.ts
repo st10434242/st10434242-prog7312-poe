@@ -33,8 +33,22 @@ export class ApiError extends Error {
   }
 }
 
+const unreachable = 'Cannot reach the gateway. Check that SmartX.Api is running.'
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init)
+  let response: Response
+
+  // fetch only throws when there is no response at all, e.g. the dev server itself is down
+  try {
+    response = await fetch(path, init)
+  } catch {
+    throw new ApiError(unreachable, 0)
+  }
+
+  // The proxy answers with 502 to 504 when the API behind it is down, which means nothing to an operator
+  if (response.status >= 502 && response.status <= 504) {
+    throw new ApiError(unreachable, response.status)
+  }
 
   if (!response.ok) {
     throw await toApiError(response)

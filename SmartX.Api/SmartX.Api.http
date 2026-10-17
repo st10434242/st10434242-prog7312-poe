@@ -131,8 +131,201 @@ Content-Type: application/json
   { "nodeId": "METER-TEST", "timestampUtc": "2026-09-13T14:23:01Z", "category": "PowerConsumption", "valueKind": "Int", "value": 625 }
 ]
 
+###
+### Part 2, real-time command stream
+###
+
+### 10. Register a soil sensor, a pump and a valve in the same sub-zone as the meter
+POST {{host}}/api/sensors
+Content-Type: application/json
+
+{
+  "nodeId": "SOIL-TEST",
+  "mac": "AA:BB:CC:DD:EE:02",
+  "location": "FacilityA/Zone1/SubZoneB",
+  "category": "Environmental",
+  "expectedIntervalMs": 60000
+}
+
+###
+POST {{host}}/api/sensors
+Content-Type: application/json
+
+{
+  "nodeId": "PUMP-TEST",
+  "mac": "AA:BB:CC:DD:EE:03",
+  "location": "FacilityA/Zone1/SubZoneB",
+  "category": "Actuator",
+  "expectedIntervalMs": 60000
+}
+
+###
+POST {{host}}/api/sensors
+Content-Type: application/json
+
+{
+  "nodeId": "VALVE-TEST",
+  "mac": "AA:BB:CC:DD:EE:04",
+  "location": "FacilityA/Zone1/SubZoneB",
+  "category": "Actuator",
+  "expectedIntervalMs": 60000
+}
+
+### 11. The pump and valve report their state like a device would (pump off, valve open)
+POST {{host}}/api/telemetry/batch
+Content-Type: application/json
+
+[
+  { "nodeId": "PUMP-TEST", "timestampUtc": "2026-10-17T10:00:00Z", "category": "Actuator", "valueKind": "Bool", "value": false },
+  { "nodeId": "VALVE-TEST", "timestampUtc": "2026-10-17T10:00:00Z", "category": "Actuator", "valueKind": "Bool", "value": true }
+]
+
+### 12. Critically dry soil, this skips the FIFO queue and goes through the priority queue
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "SOIL-TEST",
+  "timestampUtc": "2026-10-17T10:00:05Z",
+  "category": "Environmental",
+  "valueKind": "Float",
+  "value": 12.5
+}
+
+### 13. Send it again, the hash set blocks the duplicate alert (suppressedDuplicates goes up)
+POST {{host}}/api/telemetry
+Content-Type: application/json
+
+{
+  "nodeId": "SOIL-TEST",
+  "timestampUtc": "2026-10-17T10:00:08Z",
+  "category": "Environmental",
+  "valueKind": "Float",
+  "value": 11.9
+}
+
+### 14. Queue depth, throughput and how many alerts jumped the queue
+GET {{host}}/api/stream/stats
+
+### 15. Recent alerts, newest first
+GET {{host}}/api/stream/alerts?limit=20
+
+### 16. Disconnected nodes and active errors from the hash sets
+GET {{host}}/api/stream/faults
+
+### 17. Timestamp ordered readings for one device (sorted dictionary)
+GET {{host}}/api/stream/timeline/SOIL-TEST?limit=100
+
+### 18. Same thing limited to a time range
+GET {{host}}/api/stream/timeline/SOIL-TEST?from=2026-10-17T10:00:00Z&to=2026-10-17T10:00:06Z
+
+### 19. History feed of alerts, commands and dropouts
+GET {{host}}/api/stream/events?limit=20
+
+### 20. Live device table (dictionary keyed by node id)
+GET {{host}}/api/devices
+
+### 21. Filter by category and alert state
+GET {{host}}/api/devices?category=Environmental&alertState=Alert
+
+### 22. Search by node id or location level
+GET {{host}}/api/devices?search=SubZoneB
+
+### 23. Suggested actions, should include Start PUMP-TEST because the soil is dry and the pump is off
+GET {{host}}/api/insights
+
+### 24. Apply it, start the pump (expect 202, the device applies it when it checks in)
+POST {{host}}/api/commands
+Content-Type: application/json
+
+{
+  "nodeId": "PUMP-TEST",
+  "type": "StartPump"
+}
+
+### 25. Shut every valve in one command
+POST {{host}}/api/commands
+Content-Type: application/json
+
+{
+  "type": "ShutAllValves"
+}
+
+### 26. The undo stack, nextUndo is the shut all
+GET {{host}}/api/commands/history
+
+### 27. What the pump picks up when it checks in, a second call comes back empty
+GET {{host}}/api/commands/pending/PUMP-TEST
+
+### 28. Undo the shut all, every valve goes back to how it was
+POST {{host}}/api/commands/undo
+
+### 29. Undo the pump start
+POST {{host}}/api/commands/undo
+
+### 30. Nothing left (expect 409)
+POST {{host}}/api/commands/undo
+
+### 31. Tell the engine the operator looked at a device, this is what it learns from
+POST {{host}}/api/insights/activity
+Content-Type: application/json
+
+{
+  "kind": "View",
+  "term": "PUMP-TEST"
+}
+
+### 32. Hide a suggestion for 10 minutes
+POST {{host}}/api/insights/act-startpump-pump-test/dismiss
+
+### 33. What the engine has learned so far
+GET {{host}}/api/insights/patterns
+
+###
+### Part 2 rejection cases
+###
+
+### Pump command sent to a valve (expect 400)
+POST {{host}}/api/commands
+Content-Type: application/json
+
+{
+  "nodeId": "VALVE-TEST",
+  "type": "StartPump"
+}
+
+### Command sent to a sensor (expect 400)
+POST {{host}}/api/commands
+Content-Type: application/json
+
+{
+  "nodeId": "SOIL-TEST",
+  "type": "OpenValve"
+}
+
+### Range where from is after to (expect 400)
+GET {{host}}/api/stream/timeline/SOIL-TEST?from=2026-10-17T11:00:00Z&to=2026-10-17T10:00:00Z
+
+### Activity kind the dashboard isn't allowed to send (expect 400)
+POST {{host}}/api/insights/activity
+Content-Type: application/json
+
+{
+  "kind": "Command",
+  "term": "PUMP-TEST"
+}
+
 ### Clean up
 DELETE {{host}}/api/sensors/METER-TEST
+
+###
+DELETE {{host}}/api/sensors/SOIL-TEST
+
+###
+DELETE {{host}}/api/sensors/PUMP-TEST
+
+###
+DELETE {{host}}/api/sensors/VALVE-TEST
 
 ### OpenAPI document
 GET {{host}}/openapi/v1.json

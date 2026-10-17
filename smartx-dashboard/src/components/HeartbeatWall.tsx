@@ -12,7 +12,7 @@ interface Props {
 
 export function HeartbeatWall({ tiles, loading, error }: Props) {
   if (error) {
-    return <div className="wall__state wall__state--error">Could not reach the gateway: {error}</div>
+    return <div className="wall__state wall__state--error">{error}</div>
   }
 
   if (loading) {
