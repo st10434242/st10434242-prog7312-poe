@@ -63,20 +63,6 @@ Open `http://localhost:5173`. The nav bar at the top reaches every module from a
 - **Command Stream** is the Part 2 dashboard
 - **Topology** is locked until the final PoE
 
-### Load test
-
-To see the queues under real pressure, run the simulator with the load test profile instead. It
-simulates 256 devices publishing every 250ms, which is roughly 800 packets a second.
-
-```bash
-cd SmartX.Simulator
-dotnet run --launch-profile "SmartX.Simulator (load test)"
-```
-
-The **Queue depth** and **Packets / sec** tiles on the Command Stream page show the gateway keeping
-up. Restart the API when switching between the normal and load test fleets, since the registry is
-held in memory and the two fleets share some node ids.
-
 ### Running with Docker
 
 One command starts all three. Requires Docker Desktop to be running.
@@ -96,40 +82,6 @@ That is the whole UI. Note this is port **8080**, not 5173. The Vite dev server 
 Docker; nginx serves the built dashboard instead and proxies the API and the SignalR hub, so the
 browser only ever talks to one origin. The gateway itself is on `http://localhost:5225` if you want
 to hit the API directly.
-
-#### Watching the logs
-
-Run in the foreground (no `-d`) and all three services print to your terminal, prefixed with the
-service name:
-
-```
-api-1        | info: Microsoft.Hosting.Lifetime[14] Now listening on: http://[::]:8080
-simulator-1  | info: SmartX.Simulator.Worker[0] Registered 36 devices
-simulator-1  | info: SmartX.Simulator.Worker[0] Published 30 readings (1 silent, 1 abnormal, 0 from backlog)
-api-1        | warn: SmartX.Api.QueueProcessor[0] Critical alert on METER-Z2S1-02: Severe power spike, drawing 1290W
-simulator-1  | info: SmartX.Simulator.Worker[0] VALVE-Z1S1-03 switched off by command
-```
-
-For one service on its own, in a second terminal:
-
-```bash
-docker compose logs -f simulator
-docker compose logs -f api
-docker compose logs -f dashboard
-```
-
-`-f` follows the output. Drop it to see what has happened so far and exit.
-
-Useful things to look for:
-
-| Log line | Where | Means |
-|---|---|---|
-| `Registered 36 devices` | simulator | the fleet is known to the gateway |
-| `Published N readings` | simulator | telemetry is flowing |
-| `N from backlog` | simulator | a device came back online and flushed what it stored |
-| `Critical alert on ...` | api | a packet went through the priority queue |
-| `switched on/off by command` | simulator | a device collected an override |
-| `... is now Stale` | api | the sweeper spotted a silent node |
 
 #### Stopping
 
@@ -227,43 +179,6 @@ behind at most one normal packet no matter how big the backlog is.
 | Navigation without losing state | React context providers | `smartx-dashboard/src/context/`, `components/AppShell.tsx` |
 | Search and filter | server side over the device dictionary | `SmartX.Api/Endpoints/DeviceEndpoints.cs`, `components/DeviceFinder.tsx` |
 
-A few notes on the less obvious ones.
-
-**`TelemetryPacket<T>`** is a `readonly struct` constrained to value types, so one type carries
-float, int and bool without boxing. Closed generics cannot travel over HTTP, so the wire DTO tags
-its payload with a value kind and the gateway switches on that tag to rebuild the right type.
-
-**Operators cannot live on `TelemetryPacket<T>`.** That type accepts `bool`, while `+` needs
-`INumber<T>`, and one type cannot carry both constraints. So numeric aggregation uses
-`MeterReading<T>` with `+ - > <`, and actuators use `ActuatorReading` with `&` and `|`, which
-answer whether all valves are open or any are.
-
-**The recursion does two walks.** Down the deployment tree to validate placement, catching
-duplicate node ids, orphaned levels and anything past the depth limit. Back up it to aggregate, so
-a zone's power draw is the sum of its children. That second walk is what uses the operators.
-
-**The priority queue is a min-heap**, so severity is negated to get critical out first. The second
-part of the priority is an arrival counter, because `PriorityQueue` does not keep insertion order
-for ties and two critical alerts should still come out in the order they happened. It has no
-capacity limit on purpose; the FIFO queue turns devices away at 10,000 packets, but a critical
-alert is never dropped.
-
-**The undo stack stores the state before each command, per device.** "Shut all valves" is pushed
-as one command covering every valve, so a single undo puts each valve back exactly how it was. A
-valve that was already closed stays closed.
-
-**The sorted dictionary is why late packets are fine.** A device that drops off the network keeps
-its readings and sends them all when it reconnects, with their original timestamps. They land in
-the right place on the timeline graph because the keys are kept in order, and range queries stop
-as soon as they pass the end time. Two readings with the exact same timestamp are nudged a tick
-apart, since dictionary keys have to be unique.
-
-**The hash sets decide whether an alert is new.** `Add` returns false when the item is already
-there, so a sensor stuck at 12% raises one alert rather than one per packet. Severity is part of
-the key, so a warning that gets worse still raises a critical. The set clears when the reading
-comes back in range, so the next problem counts as new. The stats strip shows how many duplicates
-were blocked.
-
 ---
 
 ## The Command Stream page
@@ -330,39 +245,6 @@ the suggestions shows the raw patterns.
 when several alerts are active together some weak links get learned too. They end up with low
 confidence and rank below the real patterns, but the reason text on a learned suggestion can name
 the weaker trigger.
-
----
-
-## How the simulator behaves
-
-The simulator is meant to hit the API exactly like real hardware would.
-
-- Every sub-zone has soil sensors, a power meter, a valve, an irrigation pump and a relay
-- Each actuator checks in for its own commands every tick and changes state, an offline one cannot,
-  so its commands wait on the gateway until it is back
-- Soil gets wetter while its pump is running and a valve is open, and dries out otherwise, so
-  shutting the valves shows up on the timeline within a minute
-- A relay that is switched off cuts its meters down to standby draw
-- Random faults: flooding spikes, blocked dripper drops, power spikes of different sizes, and nodes
-  going silent
-- A silent sensor keeps up to 30 readings and flushes them when it reconnects
-
----
-
-## Demo walkthrough
-
-A quick way to show every Part 2 feature with the normal fleet running.
-
-1. Open **Command Stream**. The stats strip shows the queue keeping up and the packet feed scrolls.
-2. In **Manual overrides**, switch off the pump in Zone1 / SubZone1. Pick `SOIL-Z1S1-01` in the
-   timeline and watch the moisture fall over the next minute.
-3. When it drops below 30% a warning appears in **Priority alerts**, and below 20% a critical. A
-   **Start PUMP-Z1S1-01** suggestion appears in **Suggested actions** under the packet stream. Press **Apply** and the moisture recovers.
-4. Press **Shut all valves**, confirm, then press `Ctrl+Z`. Every valve goes back to how it was.
-5. In **Find a device**, type `pump` or pick the **Offline** chip.
-6. Search the same device a couple of times after an alert, then open **What the engine has
-   learned** to see the pattern.
-7. Run the load test profile and watch **Packets / sec** climb while **Queue depth** stays near 0.
 
 ---
 
