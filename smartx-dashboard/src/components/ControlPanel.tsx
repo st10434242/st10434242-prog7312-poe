@@ -109,7 +109,7 @@ export function ControlPanel({ devices, loading, error, markCommanded, refresh, 
                       <span className="control__id mono">{device.nodeId}</span>
                       <span className="control__state">
                         {categoryLabel(device.category, device.nodeId)} · {formatValue(device.isOn, device.category, device.nodeId)}
-                        {pending && <span className="control__pending"> → {formatValue(device.commandedState, device.category, device.nodeId)}</span>}
+                        {pending && <span className="control__pending"> &gt; {formatValue(device.commandedState, device.category, device.nodeId)}</span>}
                         {offline && <span className="control__offline"> · offline, will apply when it is back</span>}
                       </span>
                       {suggested?.command && <span className="control__suggested">Suggested: {commandLabels[suggested.command.type].toLowerCase()}</span>}

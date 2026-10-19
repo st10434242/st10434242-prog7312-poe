@@ -247,7 +247,6 @@
   padding: var(--space-2) var(--space-3);
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-left-width: 3px;
   border-radius: var(--radius-sm);
   color: var(--text);
   text-align: left;
@@ -256,14 +255,6 @@
 .alert-row:hover,
 .alert-row--selected {
   border-color: var(--border-bright);
-}
-
-.alert-row--critical {
-  border-left-color: var(--alert);
-}
-
-.alert-row--warning {
-  border-left-color: var(--caution);
 }
 
 .alert-row--cleared {
@@ -741,16 +732,7 @@
   padding: var(--space-3);
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
-}
-
-.insight--critical {
-  border-left-color: var(--alert);
-}
-
-.insight--warning {
-  border-left-color: var(--caution);
 }
 
 .insight__body {
@@ -768,6 +750,16 @@
 .insight__title {
   font-weight: 600;
   font-size: 0.9rem;
+  color: var(--accent);
+}
+
+/* Title takes the severity colour instead of a coloured edge */
+.insight--critical .insight__title {
+  color: var(--alert);
+}
+
+.insight--warning .insight__title {
+  color: var(--caution);
 }
 
 .insight__source {

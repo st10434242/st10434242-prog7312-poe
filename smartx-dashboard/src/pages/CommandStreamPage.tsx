@@ -72,7 +72,6 @@ export function CommandStreamPage() {
 
       <div className="stream-grid">
         <div className="stream-grid__main">
-          <InsightsPanel insights={insights} onRemove={removeInsight} onShow={(id) => id && select(id)} />
           <TimelinePanel
             tiles={tiles}
             nodeId={nodeId}
@@ -89,6 +88,8 @@ export function CommandStreamPage() {
             flagged={flagged}
           />
           <PacketFeed packets={packets} categoryOf={(id) => categories.get(id)} onSelect={select} />
+          {/* Kept last since the list changes size often and would push everything below it around */}
+          <InsightsPanel insights={insights} onRemove={removeInsight} onShow={(id) => id && select(id)} />
         </div>
 
         <div className="stream-grid__side">

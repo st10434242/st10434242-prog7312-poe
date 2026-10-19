@@ -273,10 +273,10 @@ The second module on the dashboard, at `/commands`.
 | Panel | What it does |
 |---|---|
 | Stats strip | Queue depth, packets per second, how many alerts jumped the queue, critical count, disconnected nodes, duplicates blocked |
-| Suggested actions | Ranked suggestions from the engine, each with Apply, Show and Dismiss |
 | Device timeline | Graph of any device from the sorted timeline, with the alert thresholds drawn on, a hover crosshair and 5 min, 15 min or all ranges |
 | Manual overrides | Every valve, pump and relay grouped by sub-zone, with a shut all valves button that needs a second click |
 | Live packet stream | The latest packets coming off the queue, with a pause button |
+| Suggested actions | Ranked suggestions from the engine, each with Apply, Show and Dismiss, kept at the bottom of the main column so its changing size never shifts the panels above |
 | Find a device | Search by node id or location, filter by category and alert state, flagged devices float to the top |
 | Command history | The undo stack, the undo button says what it will revert, `Ctrl+Z` works too |
 | Priority alerts | Worst first then newest, the same order the priority queue handles them, showing which are still active |
@@ -357,7 +357,7 @@ A quick way to show every Part 2 feature with the normal fleet running.
 2. In **Manual overrides**, switch off the pump in Zone1 / SubZone1. Pick `SOIL-Z1S1-01` in the
    timeline and watch the moisture fall over the next minute.
 3. When it drops below 30% a warning appears in **Priority alerts**, and below 20% a critical. A
-   **Start PUMP-Z1S1-01** suggestion appears at the top. Press **Apply** and the moisture recovers.
+   **Start PUMP-Z1S1-01** suggestion appears in **Suggested actions** under the packet stream. Press **Apply** and the moisture recovers.
 4. Press **Shut all valves**, confirm, then press `Ctrl+Z`. Every valve goes back to how it was.
 5. In **Find a device**, type `pump` or pick the **Offline** chip.
 6. Search the same device a couple of times after an alert, then open **What the engine has
