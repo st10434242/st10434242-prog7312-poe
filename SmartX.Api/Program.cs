@@ -21,6 +21,8 @@ builder.Services.AddSingleton<CommandHistory>();
 builder.Services.AddSingleton<CommandOutbox>();
 builder.Services.AddSingleton<PatternLearner>();
 builder.Services.AddSingleton<InsightEngine>();
+builder.Services.AddSingleton<MeshNetwork>();
+builder.Services.AddSingleton<MeshHealth>();
 
 builder.Services.AddSingleton(serviceProvider =>
 {
@@ -82,6 +84,7 @@ app.MapStreamEndpoints();
 app.MapDeviceEndpoints();
 app.MapCommandEndpoints();
 app.MapInsightEndpoints();
+app.MapMeshEndpoints();
 
 app.MapHub<TelemetryHub>("/hub/telemetry");
 app.MapHealthChecks("/health");
