@@ -27,7 +27,10 @@ public sealed record NeighbourReportDto
 public enum MeshNodeState
 {
     Up = 1,
-    Down = 2
+    Down = 2,
+
+    // Still running but cut off from the gateway because everything around it is down
+    Orphaned = 3
 }
 
 public sealed record MeshNodeDto
@@ -76,4 +79,55 @@ public sealed record MeshSnapshotDto
     public required IReadOnlyList<MeshEdgeDto> Edges { get; init; }
 
     public DateTimeOffset GeneratedAtUtc { get; init; } = DateTimeOffset.UtcNow;
+}
+
+public sealed record ReachedNodeDto
+{
+    public required string NodeId { get; init; }
+
+    public required int Hops { get; init; }
+
+    // The node it was reached through, null for the start
+    public string? Via { get; init; }
+}
+
+public sealed record ReachDto
+{
+    public required string Start { get; init; }
+
+    public string? Zone { get; init; }
+
+    // In the order BFS visited them, so closest first
+    public required IReadOnlyList<ReachedNodeDto> Connected { get; init; }
+
+    public required IReadOnlyList<string> Down { get; init; }
+
+    public required IReadOnlyList<string> Orphaned { get; init; }
+}
+
+public sealed record RerouteDto
+{
+    public required string NodeId { get; init; }
+
+    public required IReadOnlyList<string> BlockedBy { get; init; }
+
+    public string? OldNextHop { get; init; }
+
+    public required int OldHops { get; init; }
+
+    public string? NewNextHop { get; init; }
+
+    public int? NewHops { get; init; }
+
+    public bool IsOrphaned => NewNextHop is null;
+
+    public static RerouteDto FromReroute(Reroute reroute) => new()
+    {
+        NodeId = reroute.NodeId,
+        BlockedBy = reroute.BlockedBy,
+        OldNextHop = reroute.OldNextHop,
+        OldHops = reroute.OldHops,
+        NewNextHop = reroute.NewNextHop,
+        NewHops = reroute.NewHops
+    };
 }

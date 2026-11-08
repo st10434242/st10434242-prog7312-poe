@@ -61,19 +61,20 @@ public sealed class MeshNetwork
         }
     }
 
-    public MeshView Snapshot(DateTimeOffset now)
+    public MeshView Snapshot(DateTimeOffset now, Func<string, bool> isDown)
     {
         lock (_gate)
         {
-            PruneExpired(now);
+            PruneExpired(now, isDown);
             return new MeshView(_graph.Clone(), new Dictionary<string, MeshPosition>(_positions, StringComparer.OrdinalIgnoreCase));
         }
     }
 
-    private void PruneExpired(DateTimeOffset now)
+    // A down node keeps its last known links so the gateway still knows who used to route through it
+    private void PruneExpired(DateTimeOffset now, Func<string, bool> isDown)
     {
-        // ToList first since removing while enumerating the graph would throw
-        List<MeshLink> expired = [.. _graph.Links().Where(link => now - link.LastReportedUtc > LinkExpiry)];
+        List<MeshLink> expired = [.. _graph.Links()
+            .Where(link => now - link.LastReportedUtc > LinkExpiry && !isDown(link.From) && !isDown(link.To))];
 
         foreach (MeshLink link in expired)
         {

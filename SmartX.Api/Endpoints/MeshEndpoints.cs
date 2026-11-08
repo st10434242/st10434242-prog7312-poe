@@ -15,6 +15,8 @@ public static class MeshEndpoints
 
         group.MapPost("/neighbours", ReportNeighbours);
         group.MapGet("/", GetMesh);
+        group.MapGet("/reach", GetReach);
+        group.MapGet("/reroutes", GetReroutes);
 
         return group;
     }
@@ -56,21 +58,79 @@ public static class MeshEndpoints
 
     private static IResult GetMesh(MeshNetwork network, SensorRegistry registry, MeshHealth health)
     {
-        MeshView view = network.Snapshot(DateTimeOffset.UtcNow);
+        MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
+        BfsResult fromGateway = MeshTraversal.Bfs(view.Graph, MeshRadio.GatewayId, health.IsDown);
 
         List<MeshNodeDto> nodes = [.. view.Graph.Vertices
             .Order(StringComparer.OrdinalIgnoreCase)
-            .Select(nodeId => ToNodeDto(nodeId, view, registry, health))];
+            .Select(nodeId => ToNodeDto(nodeId, view, fromGateway, registry, health))];
 
         List<MeshEdgeDto> edges = [.. view.Graph.Links().Select(MeshEdgeDto.FromLink)];
 
         return Results.Ok(new MeshSnapshotDto { Nodes = nodes, Edges = edges });
     }
 
-    private static MeshNodeDto ToNodeDto(string nodeId, MeshView view, SensorRegistry registry, MeshHealth health)
+    // Everything connected to a node (the gateway by default), optionally narrowed to one zone
+    private static IResult GetReach(
+        MeshNetwork network,
+        SensorRegistry registry,
+        MeshHealth health,
+        string? from,
+        string? zone)
+    {
+        if (!TryResolveVertex(from ?? MeshRadio.GatewayId, registry, out string start))
+        {
+            return Results.Problem($"No node matches '{from}'.", statusCode: 404);
+        }
+
+        MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
+
+        if (!view.Graph.HasVertex(start))
+        {
+            return Results.Problem($"'{start}' hasn't reported any neighbours yet.", statusCode: 404);
+        }
+
+        BfsResult result = MeshTraversal.Bfs(view.Graph, start, health.IsDown);
+        bool InZone(string nodeId) => zone is null || IsInZone(nodeId, zone, registry);
+
+        return Results.Ok(new ReachDto
+        {
+            Start = start,
+            Zone = zone,
+            Connected = [.. result.VisitOrder
+                .Where(InZone)
+                .Select(nodeId => new ReachedNodeDto
+                {
+                    NodeId = nodeId,
+                    Hops = result.HopsTo(nodeId) ?? 0,
+                    Via = result.ParentOf(nodeId)
+                })],
+            Down = [.. view.Graph.Vertices.Where(health.IsDown).Where(InZone).Order(StringComparer.OrdinalIgnoreCase)],
+            Orphaned = [.. MeshReachability.Orphans(view.Graph, result, health.IsDown).Where(InZone)]
+        });
+    }
+
+    // Who lost their usual route because of a down node and where they hop now
+    private static IResult GetReroutes(MeshNetwork network, MeshHealth health)
+    {
+        MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
+
+        return Results.Ok(MeshReachability.FindReroutes(view.Graph, health.IsDown).Select(RerouteDto.FromReroute));
+    }
+
+    private static MeshNodeDto ToNodeDto(
+        string nodeId,
+        MeshView view,
+        BfsResult fromGateway,
+        SensorRegistry registry,
+        MeshHealth health)
     {
         registry.TryGet(nodeId, out SensorRegistration? sensor);
         MeshPosition position = view.Positions.GetValueOrDefault(nodeId);
+
+        MeshNodeState state = health.IsDown(nodeId)
+            ? MeshNodeState.Down
+            : fromGateway.Reached(nodeId) ? MeshNodeState.Up : MeshNodeState.Orphaned;
 
         return new MeshNodeDto
         {
@@ -81,8 +141,42 @@ public static class MeshEndpoints
             X = position.X,
             Y = position.Y,
             IsGateway = IsGateway(nodeId),
-            State = health.IsDown(nodeId) ? MeshNodeState.Down : MeshNodeState.Up
+            State = state
         };
+    }
+
+    // Lets the operator type a node id, a MAC or GATEWAY
+    private static bool TryResolveVertex(string nodeIdOrMac, SensorRegistry registry, out string nodeId)
+    {
+        nodeId = MeshRadio.GatewayId;
+
+        if (IsGateway(nodeIdOrMac))
+        {
+            return true;
+        }
+
+        if (registry.TryResolve(nodeIdOrMac.Trim(), out SensorRegistration? sensor))
+        {
+            nodeId = sensor.NodeId;
+            return true;
+        }
+
+        return false;
+    }
+
+    // Matches whole path segments so Zone1 doesn't also pick up Zone10
+    private static bool IsInZone(string nodeId, string zone, SensorRegistry registry)
+    {
+        if (!registry.TryGet(nodeId, out SensorRegistration? sensor))
+        {
+            return false;
+        }
+
+        string location = sensor.Location.ToString();
+        string prefix = zone.Trim().TrimEnd('/');
+
+        return location.Equals(prefix, StringComparison.OrdinalIgnoreCase) ||
+            location.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     private static Dictionary<string, string[]> Validate(NeighbourReportDto dto)
