@@ -88,6 +88,7 @@ app.MapDeviceEndpoints();
 app.MapCommandEndpoints();
 app.MapInsightEndpoints();
 app.MapMeshEndpoints();
+app.MapHistoryEndpoints();
 
 app.MapHub<TelemetryHub>("/hub/telemetry");
 app.MapHealthChecks("/health");
