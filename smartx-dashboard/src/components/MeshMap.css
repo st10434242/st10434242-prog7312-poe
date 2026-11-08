@@ -67,9 +67,13 @@
   cursor: help;
 }
 
-/* Traced routes, everything else steps back while one is showing */
+/* Traced routes, everything else steps back while one is showing but the chosen layer still shows through */
 .mesh-map__canvas--tracing .mesh-map__edge {
   stroke-opacity: 0.06;
+}
+
+.mesh-map__canvas--tracing .mesh-map__edge--tree {
+  stroke-opacity: 0.4;
 }
 
 .mesh-map__route {

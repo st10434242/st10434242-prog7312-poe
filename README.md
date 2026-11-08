@@ -1,16 +1,17 @@
 # Smart-X IoT Mesh Ecosystem
 
-Ingestion gateway, real-time command stream and device management for a distributed ESP32 sensor
-network.
+Ingestion gateway, real-time command stream and self-healing mesh routing for a simulated ESP32
+sensor network.
 
-PROG7312 Programming 3B, Portfolio of Evidence Part 1 and Part 2.
+PROG7312 Programming 3B, Portfolio of Evidence Part 1, Part 2 and the final PoE (Part 3).
 
-The gateway receives multi-typed telemetry (float soil moisture, int wattage, bool actuator state)
-from a simulated fleet that behaves like real devices. Packets are validated, pushed through a FIFO
-queue (or a priority queue when they are critical), stored in the right data structure for how they
-get read back, and streamed live to a React dashboard over SignalR. Operators can override valves,
-pumps and relays with a full undo history, search the fleet, and act on suggestions from a
-predictive action engine that learns from what they do.
+A simulated fleet posts multi-typed telemetry (float soil moisture, int wattage, bool actuator state)
+to a .NET 10 gateway, which validates it, queues it and streams it live to a React dashboard over
+SignalR. The final PoE adds **Network Topology and Mesh Routing**: every node beacons the neighbours
+it can hear, the gateway builds a weighted graph of the mesh, finds who is reachable with BFS, works
+out the most power efficient backbone with Prim's (checked by Kruskal's) and heals routes live when
+a relay drops. Every reading is also indexed in a per-node AVL tree so any time range comes back
+without scanning the whole history.
 
 ---
 
@@ -49,7 +50,7 @@ cd SmartX.Simulator
 dotnet run
 ```
 
-**4. Dashboard** (new terminal, opens on `http://localhost:5173`)
+**4. Dashboard** (new terminal)
 
 ```bash
 cd smartx-dashboard
@@ -57,50 +58,75 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The nav bar at the top reaches every module from any page:
+Open `http://localhost:5173`. The gateway seeds 24 hours of history for every node on startup, so the
+historical log has data straight away. Give the map a few seconds after the simulator starts for the
+first neighbour reports to arrive.
 
-- **Telemetry** is the Part 1 Heartbeat Wall
-- **Command Stream** is the Part 2 dashboard
-- **Topology** is locked until the final PoE
+### Running the tests
+
+```bash
+dotnet test
+```
+
+42 xUnit tests in `SmartX.Tests` cover the AVL tree, the history index, BFS, the heap, union find
+and all three spanning trees, including Prim against Kruskal on 200 random meshes.
 
 ### Running with Docker
-
-One command starts all three. Requires Docker Desktop to be running.
 
 ```bash
 docker compose up --build
 ```
 
-The first build takes a few minutes while the .NET and Node images download. After that it is
-cached.
+Then open **http://localhost:8080** (not 5173). nginx serves the built dashboard and proxies the API
+and SignalR hub. The API is still on `http://localhost:5225` if you want to call it directly. Stop it
+with `Ctrl+C` and `docker compose down` (add `-v` to also delete uploaded attachments).
 
-#### Then open the dashboard
+---
 
-**http://localhost:8080**
+## Using the dashboard
 
-That is the whole UI. Note this is port **8080**, not 5173. The Vite dev server is not used in
-Docker; nginx serves the built dashboard instead and proxies the API and the SignalR hub, so the
-browser only ever talks to one origin. The gateway itself is on `http://localhost:5225` if you want
-to hit the API directly.
+The nav bar at the top reaches all three modules from any page, and each module keeps its state
+when you move between them.
 
-#### Stopping
+### Telemetry (Part 1)
 
-If it is running in the foreground, `Ctrl+C`. Then:
+Register a sensor with its MAC, location and category, then drill down the Heartbeat Wall zone by
+zone. Live tiles pulse, and a tile fades and is marked stale when its node stops reporting.
+Click a tile for the node page, where you can attach config files, photos or logs, and silence the
+node to test a disconnect.
 
-```bash
-docker compose down
-```
+### Command Stream (Part 2)
 
-Uploaded attachments live in a named volume, so `docker compose down` keeps them. Add `-v` to
-delete them as well.
+| Panel | What it does |
+|---|---|
+| Stats strip | Queue depth, packets per second, alerts that jumped the queue, disconnected nodes |
+| Device timeline | Graph of any device from the sorted timeline, with the alert thresholds drawn on |
+| Manual overrides | Every valve, pump and relay by sub-zone, plus shut all valves |
+| Command history | The undo stack, `Ctrl+Z` works too |
+| Find a device | Search by node id or location, filter by category and alert state |
+| Priority alerts | Worst first, the same order the priority queue handles them |
+| Suggested actions | Ranked suggestions from the predictive engine, each with Apply, Show and Dismiss |
 
-**Optional.** Attachments are AES encrypted at rest. Without a key the gateway generates a
-temporary one, which means uploads stop being readable after a restart. To keep them, create a
-`.env` file next to `docker-compose.yml`:
+### Topology (final PoE)
 
-```
-ATTACHMENTS_KEY=<base64 32 bytes>
-```
+| Panel | What it does |
+|---|---|
+| Mesh map | Every node inside its zone, links shaded by signal strength. Layers switch between all links, the MST backbone, the shortest routes and BFS reach (hop count on every node) |
+| Route tracer | Search by MAC in any format (`AA:BB:..`, `aa-bb-..`, `AABB..`) or node id, or click a node. Shows the MST route and the Dijkstra route with every hop's RSSI and cost, and draws both on the map |
+| Reachability | BFS from the gateway or any node. Connected nodes by hop count, the down and orphaned lists, and "hop via X instead of Y" for nodes whose route ran through a down node |
+| Historical log | Pick a node and a range (last hour, 6 h, 24 h, 14:00 to 16:00 or custom). Chart, raw log and the AVL query stats |
+| Benchmark | Runs the same range query on the AVL tree and on a plain list at 1k to 1M readings |
+
+The selected node and layer sit in the URL (`/topology?node=SOIL-Z3S2-01&layer=backbone`), so a
+refresh or a link from the node page lands on the same view.
+
+**Trying the self-healing**
+
+1. Click a node in Zone 3, or type its MAC into the route tracer.
+2. Hover a relay in the route and click **Silence**.
+3. Within 2 seconds the map, both routes and the reachability panel update, and the tracer says
+   what it healed around.
+4. **Restore** (or **Restore all**) brings it back. **Clear** stops tracing.
 
 ---
 
@@ -113,7 +139,7 @@ flowchart LR
   CORE["SmartX.Core<br/>domain types and data structures"]
   UI["smartx-dashboard<br/>React"]
 
-  SIM -->|"HTTP POST telemetry"| API
+  SIM -->|"HTTP POST telemetry and neighbour reports"| API
   SIM -->|"HTTP GET pending commands"| API
   API -->|"SignalR push"| UI
   UI -->|"HTTP register, query, command"| API
@@ -121,30 +147,21 @@ flowchart LR
   SIM --- CORE
 ```
 
-`SmartX.Core` holds the domain types and data structures and depends on nothing. The API and the
-simulator both reference it, which is what stops the two ends drifting apart. They never reference
-each other, because they are meant to talk at runtime over HTTP rather than at compile time.
-
-### Inside the gateway
+`SmartX.Core` holds the data structures and depends on nothing. The API and simulator both reference
+it but never each other, because they talk at runtime over HTTP like a real device would.
 
 ```mermaid
 flowchart LR
-  IN["POST /api/telemetry"] --> V["Validate against<br/>the registry"]
-  V --> C{"AlertClassifier"}
-  C -->|"normal or repeat alert"| Q["TelemetryQueue<br/>FIFO Queue"]
-  C -->|"new alert"| P["AlertQueue<br/>PriorityQueue"]
-  P --> PR["QueueProcessor"]
-  Q --> PR
-  PR --> DT["DeviceTable<br/>Dictionary"]
-  PR --> TL["TimelineLog<br/>SortedDictionary"]
-  PR --> HUB["SignalR hub"]
-  SW["StalenessSweeper"] --> FS["FaultSet<br/>HashSet"]
-  C -.->|"dedupe"| FS
+  NR["POST /api/mesh/neighbours"] --> MN["MeshNetwork<br/>adjacency list graph"]
+  MN --> BFS["BFS<br/>reach, orphans, reroutes"]
+  MN --> PRIM["Prim / Kruskal<br/>MST backbone"]
+  MN --> DIJ["Dijkstra<br/>shortest routes"]
+  PUB["MeshPublisher<br/>every 2 s"] -->|"MeshChanged"| HUB["SignalR hub"]
+  PR["QueueProcessor"] --> AVL["TelemetryHistoryIndex<br/>AVL tree per node"]
 ```
 
-The endpoint only validates and enqueues, so a request never waits on storage or SignalR. The
-processor checks the priority queue before every single FIFO packet, so a critical alert waits
-behind at most one normal packet no matter how big the backlog is.
+A node counts as down when its readings stop or it is silenced, so it drops out of BFS, both MSTs and
+Dijkstra on the next publish and the dashboard redraws the healed routes.
 
 ---
 
@@ -157,160 +174,171 @@ behind at most one normal packet no matter how big the backlog is.
 | Generics, no boxing | `SmartX.Core/TelemetryPacket.cs` |
 | Operator overloading | `SmartX.Core/AggregateReadings.cs` |
 | Jagged arrays into `List<T>` | `SmartX.Core/TelemetryBatchBuffer.cs` |
-| Custom collection | `SmartX.Core/TelemetryRingBuffer.cs` |
-| Recursion with depth guard | `SmartX.Core/DeploymentTree.cs` |
-| Sensor registration and validation | `SmartX.Api/Endpoints/SensorEndpoints.cs` |
-| Encrypted file upload | `SmartX.Core/AttachmentStore.cs` |
+| Recursion | `SmartX.Core/DeploymentTree.cs` |
+| File upload | `SmartX.Core/AttachmentStore.cs` |
 | Engagement feature | `smartx-dashboard/src/components/HeartbeatWall.tsx` |
 
 ### Part 2
 
 | Requirement | Data structure | File |
 |---|---|---|
-| FIFO telemetry processing | `Queue<TelemetryPacketDto>` | `SmartX.Core/TelemetryQueue.cs`, `SmartX.Api/QueueProcessor.cs` |
-| Critical alerts bypass the queue | `PriorityQueue<AlertWork, (int, long)>` | `SmartX.Core/AlertQueue.cs`, `SmartX.Core/AlertClassifier.cs` |
-| Undo for manual overrides | `Stack<DeviceCommand>` | `SmartX.Core/CommandHistory.cs` |
-| Live device lookups | `Dictionary<string, DeviceState>` | `SmartX.Core/DeviceTable.cs` |
-| Logs ordered by timestamp | `SortedDictionary<DateTimeOffset, ...>` | `SmartX.Core/TimelineLog.cs` |
-| Unique error states and disconnects | `HashSet<string>`, `HashSet<(string, AlertKind, AlertSeverity)>` | `SmartX.Core/FaultSet.cs` |
-| Commands waiting for a device | `Dictionary<string, Queue<PendingCommandDto>>` | `SmartX.Core/CommandOutbox.cs` |
-| Pattern analysis | `Dictionary<string, Dictionary<string, int>>` | `SmartX.Core/PatternLearner.cs` |
-| Ranked suggestions | `PriorityQueue<InsightDto, int>` | `SmartX.Core/InsightEngine.cs`, `SmartX.Api/InsightPublisher.cs` |
-| Navigation without losing state | React context providers | `smartx-dashboard/src/context/`, `components/AppShell.tsx` |
-| Search and filter | server side over the device dictionary | `SmartX.Api/Endpoints/DeviceEndpoints.cs`, `components/DeviceFinder.tsx` |
+| FIFO telemetry processing | `Queue<T>` | `SmartX.Core/TelemetryQueue.cs` |
+| Critical alerts bypass the queue | `PriorityQueue<T, P>` | `SmartX.Core/AlertQueue.cs` |
+| Undo for manual overrides | `Stack<T>` | `SmartX.Core/CommandHistory.cs` |
+| Live device lookups | `Dictionary<TKey, TValue>` | `SmartX.Core/DeviceTable.cs` |
+| Logs ordered by timestamp | `SortedDictionary<TKey, TValue>` | `SmartX.Core/TimelineLog.cs` |
+| Unique errors and disconnects | `HashSet<T>` | `SmartX.Core/FaultSet.cs` |
+| Predictive action engine | weighted pattern graph and `PriorityQueue` | `SmartX.Core/PatternLearner.cs`, `SmartX.Core/InsightEngine.cs` |
+
+### Final PoE
+
+| Requirement | Data structure | File |
+|---|---|---|
+| Historical range queries | `AvlTree<TelemetryKey, double>` | `SmartX.Core/AvlTree.cs`, `SmartX.Core/TelemetryHistoryIndex.cs` |
+| Mesh network model | adjacency list graph | `SmartX.Core/MeshGraph.cs`, `SmartX.Core/MeshNetwork.cs` |
+| Connected devices, who is down, where to hop | BFS with a `Queue<string>` | `SmartX.Core/MeshTraversal.cs`, `SmartX.Core/MeshReachability.cs` |
+| Power efficient routing (MST) | Prim's with a binary heap | `SmartX.Core/PrimMst.cs`, `SmartX.Core/MinHeap.cs` |
+| MST cross check | Kruskal's with union find | `SmartX.Core/KruskalMst.cs`, `SmartX.Core/DisjointSet.cs` |
+| Each node's cheapest route | Dijkstra | `SmartX.Core/DijkstraRoutes.cs` |
+| Lookup by MAC address | `ConcurrentDictionary<MacAddress, string>` | `SmartX.Core/SensorRegistry.cs` |
+| Topology page | SVG map, tracer, BFS panel, history viewer | `smartx-dashboard/src/pages/TopologyPage.tsx` |
 
 ---
 
-## The Command Stream page
+## Data structures behind the topology module
 
-The second module on the dashboard, at `/commands`.
+The separate Data Structures report goes into more depth. This is the short version.
 
-| Panel | What it does |
-|---|---|
-| Stats strip | Queue depth, packets per second, how many alerts jumped the queue, critical count, disconnected nodes, duplicates blocked |
-| Device timeline | Graph of any device from the sorted timeline, with the alert thresholds drawn on, a hover crosshair and 5 min, 15 min or all ranges |
-| Manual overrides | Every valve, pump and relay grouped by sub-zone, with a shut all valves button that needs a second click |
-| Live packet stream | The latest packets coming off the queue, with a pause button |
-| Suggested actions | Ranked suggestions from the engine, each with Apply, Show and Dismiss, kept at the bottom of the main column so its changing size never shifts the panels above |
-| Find a device | Search by node id or location, filter by category and alert state, flagged devices float to the top |
-| Command history | The undo stack, the undo button says what it will revert, `Ctrl+Z` works too |
-| Priority alerts | Worst first then newest, the same order the priority queue handles them, showing which are still active |
-| History | Alerts, commands, undos and dropouts from the sorted event log |
+### AVL tree for historical telemetry
 
-The packet feed, alerts, history and suggestions live in context providers above the router, so
-they keep filling up while you are on another page. Moving between Telemetry and Command Stream
-never reloads the fleet or drops the SignalR connection. The selected device and time range sit in
-the URL, and the search filters are kept for the session.
+**Role.** Each node gets its own `AvlTree<TelemetryKey, double>` keyed on timestamp plus a sequence
+number, so two readings at the same tick are both kept. Telemetry always arrives in time order, which
+turns a plain BST into a linked list. The AVL tree rebalances after every insert, so it stays
+O(log n) tall.
 
----
+**Range query.** It walks down to the start of the window and then only visits nodes inside it:
 
-## Predictive action engine
+```csharp
+// Only go left if smaller keys could still be in the window, same idea on the right
+if (aboveFrom)
+{
+    visited += CollectRange(node.Left, from, to, into);
+}
 
-`InsightEngine` combines two passes and ranks the result.
+if (_comparer.Compare(node.Key, from) >= 0 && _comparer.Compare(node.Key, to) <= 0)
+{
+    into.Add(Pair(node));
+}
 
-**Rule pass.** Everything currently in the fault sets gets matched to an actuator in the same
-sub-zone that could fix it.
+if (belowTo)
+{
+    visited += CollectRange(node.Right, from, to, into);
+}
+```
 
-| Problem | Suggestion |
-|---|---|
-| Soil too dry | Start the pump, open a closed valve |
-| Soil flooding | Close the open valve, or stop the pump if there is no valve |
-| Critical power spike | Cut power at the relay |
-| Device disconnected | Check it, including how many commands are waiting for it |
+That costs O(log n + k) for k results instead of O(n). The oldest reading is always the leftmost
+node, so keeping a day of history (86,400 readings per node) is just a delete-min.
 
-If nothing nearby can help, it points at the device instead, for example "Check the drip line" when
-the pump is already running but the soil is still dry.
+**How it scales** (same 10 minute window, 50 runs at each size, Debug build):
 
-**Learned pass.** `PatternLearner` keeps a weighted graph of "after X the operator did Y". Alerts,
-searches, opened devices and commands are all recorded. Alerts can only start a pattern, because
-the point is to learn from the operator, not from the network. Two things are linked if they
-happened within two minutes of each other, and a pattern has to be seen at least twice before it
-counts. Confidence is how often Y followed X out of everything that followed X.
+| Readings | Tree height | Results | AVL | Nodes visited | List scan | Faster |
+|---|---|---|---|---|---|---|
+| 1,000 | 12 | 600 | 80 µs | 608 | 25 µs | 0.3× |
+| 10,000 | 16 | 600 | 77 µs | 612 | 180 µs | 2.3× |
+| 100,000 | 20 | 600 | 128 µs | 617 | 1,612 µs | 12.6× |
+| 1,000,000 | 24 | 600 | 193 µs | 620 | 15,077 µs | 78.1× |
 
-When one of those triggers is happening right now (an active alert, or the operator's last action),
-the strongest followers become suggestions. So if you keep checking `PUMP-Z1S1-01` whenever
-`SOIL-Z1S1-04` goes dry, the next time it goes dry the pump is suggested before you search for it.
+The tree's time barely moves as the history grows a thousand times, because it only touches one path
+plus the results. The list has to look at every reading. Under a few thousand readings the flat list
+still wins because it is so cache friendly.
 
-**Ranking.** Rules score by severity (critical 90, warning 65). Learned suggestions score by
-confidence and how often they were seen. When a rule and a learned pattern suggest the same thing
-they merge into one "Rule + learned" suggestion with a bump. Everything goes into a
-`PriorityQueue` and the top eight come out. `InsightPublisher` rebuilds the list every two seconds
-and only pushes it over SignalR when it actually changed.
+### Weighted graph of the mesh
 
-The dashboard flags the devices involved in the finder and the override panel, and the nav bar
-shows how many suggestions are open from any page. Opening **What the engine has learned** under
-the suggestions shows the raw patterns.
+**Role.** Vertices are the nodes and the gateway, edges are the radio links they report. The
+adjacency list is a dictionary of dictionaries, so adding or finding a link is O(1) and walking a
+node's neighbours is O(degree). Each link's cost is the expected number of transmissions from its
+signal strength:
 
-**Known limitation.** Every alert active at the time of an operator action gets linked to it, so
-when several alerts are active together some weak links get learned too. They end up with low
-confidence and rank below the real patterns, but the reason text on a learned suggestion can name
-the weaker trigger.
+```csharp
+double quality = (double)(rssiDbm - SensitivityDbm) / (StrongDbm - SensitivityDbm);
+quality = Math.Clamp(quality, 0.05, 1);
+
+double expectedTransmissions = 1 / quality;
+
+return Math.Round(BaseHopCost * expectedTransmissions, 2);
+```
+
+A -50 dBm link costs 10 and a -80 dBm link costs 40, because it needs about four tries per packet.
+Links expire after 15 seconds without a report.
+
+### BFS, MST and Dijkstra
+
+| Algorithm | Used for | Time |
+|---|---|---|
+| BFS (`Queue<string>`) | everything reachable from the gateway or a node, hop counts, orphans, reroutes | O(V + E) |
+| Prim (binary heap) | the MST backbone, the least total radio energy that keeps everyone connected | O(E log E) |
+| Kruskal (union find) | independent check that Prim's total is right | O(E log E) |
+| Dijkstra (same heap) | each node's own cheapest route to the gateway | O(E log E) |
+
+All of them skip down nodes, which is what makes the routes heal. The MST minimises the whole
+network's cost, so a far node can end up on a long chain (12 hops, cost 300.35 for `SOIL-Z3S2-01`).
+Dijkstra minimises each node's own route (5 hops, cost 173.96 for the same node). The tracer shows
+both: the MST is the power efficient backbone the brief asks for, and Dijkstra is closer to how
+Zigbee and Thread routers pick a next hop.
 
 ---
 
 ## API
 
-### Part 1
+`SmartX.Api/SmartX.Api.http` has ready-made requests for every route in order, including the
+rejection cases. Open it in Visual Studio or VS Code (REST Client) and click **Send request** with
+the API running.
 
-| Method | Route |
-|---|---|
-| POST | `/api/sensors` |
-| GET, DELETE | `/api/sensors/{nodeId}` |
-| POST | `/api/telemetry`, `/api/telemetry/batch` |
-| GET | `/api/telemetry/{nodeId}` |
-| GET | `/api/topology` |
-| POST, DELETE | `/api/debug/silence/{nodeId}` |
-| POST, GET | `/api/sensors/{nodeId}/attachments` |
-| GET, DELETE | `/api/attachments/{id}` |
-| GET | `/health`, `/openapi/v1.json` |
-
-### Part 2
+### Final PoE
 
 | Method | Route | Returns |
 |---|---|---|
-| GET | `/api/stream/stats` | queue depth, throughput, alert counts |
-| GET | `/api/stream/alerts?limit=` | recent alerts, newest first |
-| GET | `/api/stream/faults` | disconnected nodes, active errors, duplicates blocked |
-| GET | `/api/stream/timeline/{nodeId}?from=&to=&limit=` | timestamp ordered readings |
-| GET | `/api/stream/events?nodeId=&limit=` | history of alerts, commands and dropouts |
-| GET | `/api/devices?category=&alertState=&search=` | live device table, worst first |
-| GET | `/api/devices/{nodeId}` | one device |
-| POST | `/api/commands` | issue an override (202, the device applies it on check in) |
-| POST | `/api/commands/undo` | revert the last command (409 when the stack is empty) |
-| GET | `/api/commands/history` | the undo stack and what undo would revert |
-| GET | `/api/commands/pending/{nodeId}` | what a device collects when it checks in |
-| GET | `/api/insights` | ranked suggestions |
-| POST | `/api/insights/activity` | record a search or opened device |
-| POST | `/api/insights/{id}/dismiss` | hide a suggestion for 10 minutes |
-| GET | `/api/insights/patterns` | what the engine has learned |
+| POST | `/api/mesh/neighbours` | a node's neighbour report |
+| GET | `/api/mesh` | nodes with position and state, every link with RSSI and cost |
+| GET | `/api/mesh/reach?from=&zone=` | BFS: connected, down and orphaned nodes |
+| GET | `/api/mesh/reroutes` | nodes whose usual route runs through a down node, and their new next hop |
+| GET | `/api/mesh/mst?algorithm=` | the MST (`prim` or `kruskal`) with its total cost |
+| GET | `/api/mesh/mst/compare` | Prim and Kruskal on the same snapshot |
+| GET | `/api/mesh/shortest` | the Dijkstra shortest path tree |
+| GET | `/api/mesh/route/{nodeIdOrMac}` | backbone route, shortest route and what it healed around |
+| GET | `/api/history/{nodeIdOrMac}?from=&to=` | readings in the range plus the AVL query stats |
+| GET | `/api/history/benchmark` | AVL range query against a list scan |
 
-SignalR pushes on `/hub/telemetry`: `ReadingReceived`, `LivenessChanged`, `AlertRaised`,
-`EventLogged`, `CommandIssued`, `CommandReverted` and `InsightsUpdated`.
+### Parts 1 and 2
 
-`SmartX.Api/SmartX.Api.http` has ready-made requests for all of these in order, including the
-rejection cases. Open it in Visual Studio and click **Send request** with the API running.
+| Area | Routes |
+|---|---|
+| Sensors | `/api/sensors`, `/api/sensors/{nodeId}`, `/api/sensors/{nodeId}/attachments` |
+| Telemetry | `/api/telemetry`, `/api/telemetry/batch`, `/api/telemetry/{nodeId}` |
+| Stream | `/api/stream/stats`, `/api/stream/alerts`, `/api/stream/faults`, `/api/stream/timeline/{nodeId}`, `/api/stream/events` |
+| Devices | `/api/devices`, `/api/devices/{nodeId}` |
+| Commands | `/api/commands`, `/api/commands/undo`, `/api/commands/history`, `/api/commands/pending/{nodeId}` |
+| Insights | `/api/insights`, `/api/insights/activity`, `/api/insights/{id}/dismiss`, `/api/insights/patterns` |
+| Other | `/api/debug/silence/{nodeId}`, `/health`, `/openapi/v1.json` |
+
+Live updates are pushed on the SignalR hub at `/hub/telemetry`.
 
 ---
 
 ## Configuration
 
-**Fleet size and behaviour**, in `SmartX.Simulator/appsettings.json`:
+**Fleet**, in `SmartX.Simulator/appsettings.json`: `Zones`, `SubZonesPerZone` and
+`SensorsPerSubZone` set the fleet size. Set `SilenceChance` to 0 for a demo where nodes only drop
+when you silence them.
 
-```json
-"Zones": 3, "SubZonesPerZone": 2, "SensorsPerSubZone": 4,
-"PublishIntervalMs": 1000, "SpikeChance": 0.02, "DropChance": 0.02,
-"DryingRate": 0.04, "SilenceChance": 0.005, "RecoverChance": 0.1
-```
+**History seeding**, in `SmartX.Api/appsettings.json`: `"History": { "SeedHours": 24,
+"SeedIntervalSeconds": 10 }` gives 8,640 readings per node on startup.
 
-`DryingRate` is how fast soil moves towards wet or dry each reading. Raise it to make the effect of
-an override show up faster in a demo.
-
-**Attachment encryption key.** Uploads are AES encrypted at rest. Without a configured key the API
-generates a temporary one and logs a warning, which means uploads will not survive a restart. To
-set a persistent key:
+**Attachment key.** Uploads are AES encrypted at rest. Without a key the API makes a temporary one,
+so uploads are unreadable after a restart. To keep them, set a key:
 
 ```bash
 dotnet user-secrets set "Attachments:Key" "<base64 32 bytes>" --project SmartX.Api
 ```
 
----
+In Docker, put `ATTACHMENTS_KEY=<base64 32 bytes>` in a `.env` file next to `docker-compose.yml`.

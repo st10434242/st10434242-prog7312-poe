@@ -36,6 +36,14 @@ export function TopologyPage() {
     setParams(next, { replace: true })
   }
 
+  // Keeps the layer in the query, an empty query would make the restore below bring the old node back
+  const clear = () => {
+    const next = new URLSearchParams(params)
+    next.delete('node')
+    next.set('layer', next.get('layer') ?? 'links')
+    setParams(next, { replace: true })
+  }
+
   const nodes = snapshot?.nodes.filter((node) => !node.isGateway) ?? []
   const count = (state: string) => nodes.filter((node) => node.state === state).length
 
@@ -104,7 +112,7 @@ export function TopologyPage() {
               <h2 className="panel__title">Route tracer</h2>
               <span className="panel__hint">MST backbone against the shortest route</span>
             </header>
-            <RouteTracer snapshot={snapshot} route={route} error={routeError} selected={selected} onSelect={select} />
+            <RouteTracer snapshot={snapshot} route={route} error={routeError} selected={selected} onSelect={select} onClear={clear} />
           </section>
 
           <section className="panel">

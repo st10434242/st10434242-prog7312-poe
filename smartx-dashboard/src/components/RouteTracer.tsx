@@ -12,9 +12,10 @@ interface Props {
   error: string | null
   selected: string | null
   onSelect: (nodeId: string) => void
+  onClear: () => void
 }
 
-export function RouteTracer({ snapshot, route, error, selected, onSelect }: Props) {
+export function RouteTracer({ snapshot, route, error, selected, onSelect, onClear }: Props) {
   const toast = useToast()
   const [search, setSearch] = useState('')
   const [searchError, setSearchError] = useState<string | null>(null)
@@ -112,6 +113,11 @@ export function RouteTracer({ snapshot, route, error, selected, onSelect }: Prop
         <button type="submit" className="panel__action">
           Trace
         </button>
+        {selected && (
+          <button type="button" className="panel__action" onClick={onClear} title="Stop tracing and show the whole layer again">
+            Clear
+          </button>
+        )}
       </form>
 
       {searchError && <p className="tracer__error">{searchError}</p>}
