@@ -213,6 +213,14 @@ public sealed record RouteDto
 
     // The cheapest route for this node on its own
     public required RoutePathDto Shortest { get; init; }
+
+    // Down nodes sitting on the route it would normally take, empty when nothing is in the way
+    public required IReadOnlyList<string> BlockedBy { get; init; }
+
+    // The shortest route as if every node was up, so the dashboard can show what it healed around
+    public required RoutePathDto Usual { get; init; }
+
+    public bool Rerouted => BlockedBy.Count > 0;
 }
 
 // Prim and Kruskal run on the same snapshot, a correct MST has one total cost even if ties pick different links
@@ -232,4 +240,35 @@ public sealed record MstComparisonDto
 
     // Small tolerance since the two add the same costs up in a different order
     public bool Match => Math.Abs(PrimTotalCost - KruskalTotalCost) < 0.01;
+}
+
+public sealed record NodeStateChangeDto
+{
+    public required string NodeId { get; init; }
+
+    // Null when the node has only just appeared in the mesh
+    public MeshNodeState? From { get; init; }
+
+    // Null when the node has been removed from the mesh
+    public MeshNodeState? To { get; init; }
+}
+
+// Pushed over SignalR when the mesh changes, the dashboard reloads the map when it gets one
+public sealed record MeshChangedDto
+{
+    public required int Up { get; init; }
+
+    public required int Down { get; init; }
+
+    public required int Orphaned { get; init; }
+
+    public required int Links { get; init; }
+
+    public required double BackboneCost { get; init; }
+
+    public required IReadOnlyList<NodeStateChangeDto> Changes { get; init; }
+
+    public required bool LinksChanged { get; init; }
+
+    public DateTimeOffset ChangedAtUtc { get; init; } = DateTimeOffset.UtcNow;
 }

@@ -64,11 +64,11 @@ public static class MeshEndpoints
     private static IResult GetMesh(MeshNetwork network, SensorRegistry registry, MeshHealth health)
     {
         MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
-        BfsResult fromGateway = MeshTraversal.Bfs(view.Graph, MeshRadio.GatewayId, health.IsDown);
+        Dictionary<string, MeshNodeState> states = MeshReachability.States(view.Graph, health.IsDown);
 
         List<MeshNodeDto> nodes = [.. view.Graph.Vertices
             .Order(StringComparer.OrdinalIgnoreCase)
-            .Select(nodeId => ToNodeDto(nodeId, view, fromGateway, registry, health))];
+            .Select(nodeId => ToNodeDto(nodeId, view, states[nodeId], registry))];
 
         List<MeshEdgeDto> edges = [.. view.Graph.Links().Select(MeshEdgeDto.FromLink)];
 
@@ -202,6 +202,11 @@ public static class MeshEndpoints
 
         SpanningTree backbone = PrimMst.Build(view.Graph, MeshRadio.GatewayId, health.IsDown);
         SpanningTree shortest = DijkstraRoutes.Build(view.Graph, MeshRadio.GatewayId, health.IsDown);
+
+        // Same search with nothing down, comparing the two shows what the mesh healed around
+        SpanningTree usual = DijkstraRoutes.Build(view.Graph, MeshRadio.GatewayId, _ => false);
+        RoutePathDto usualPath = RoutePathDto.FromTree(usual, nodeId);
+
         registry.TryGet(nodeId, out SensorRegistration? sensor);
 
         MeshNodeState state = health.IsDown(nodeId)
@@ -215,23 +220,16 @@ public static class MeshEndpoints
             State = state,
             Reachable = state == MeshNodeState.Up,
             Backbone = RoutePathDto.FromTree(backbone, nodeId),
-            Shortest = RoutePathDto.FromTree(shortest, nodeId)
+            Shortest = RoutePathDto.FromTree(shortest, nodeId),
+            Usual = usualPath,
+            BlockedBy = [.. usualPath.Hops.Select(h => h.To).Where(health.IsDown)]
         });
     }
 
-    private static MeshNodeDto ToNodeDto(
-        string nodeId,
-        MeshView view,
-        BfsResult fromGateway,
-        SensorRegistry registry,
-        MeshHealth health)
+    private static MeshNodeDto ToNodeDto(string nodeId, MeshView view, MeshNodeState state, SensorRegistry registry)
     {
         registry.TryGet(nodeId, out SensorRegistration? sensor);
         MeshPosition position = view.Positions.GetValueOrDefault(nodeId);
-
-        MeshNodeState state = health.IsDown(nodeId)
-            ? MeshNodeState.Down
-            : fromGateway.Reached(nodeId) ? MeshNodeState.Up : MeshNodeState.Orphaned;
 
         return new MeshNodeDto
         {

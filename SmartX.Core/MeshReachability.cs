@@ -1,3 +1,5 @@
+using SmartX.Core.Contracts;
+
 namespace SmartX.Core;
 
 // A live node whose usual way to the gateway runs through something that is down
@@ -24,6 +26,19 @@ public static class MeshReachability
         [.. graph.Vertices
             .Where(nodeId => !isDown(nodeId) && !fromGateway.Reached(nodeId))
             .Order(StringComparer.OrdinalIgnoreCase)];
+
+    // One BFS from the gateway decides every node's state, used by the map and the change publisher
+    public static Dictionary<string, MeshNodeState> States(MeshGraph graph, Func<string, bool> isDown)
+    {
+        BfsResult fromGateway = MeshTraversal.Bfs(graph, MeshRadio.GatewayId, isDown);
+
+        return graph.Vertices.ToDictionary(
+            nodeId => nodeId,
+            nodeId => isDown(nodeId)
+                ? MeshNodeState.Down
+                : fromGateway.Reached(nodeId) ? MeshNodeState.Up : MeshNodeState.Orphaned,
+            StringComparer.OrdinalIgnoreCase);
+    }
 
     // Runs BFS twice, once pretending everything is healthy and once for real, then compares the two
     public static IReadOnlyList<Reroute> FindReroutes(MeshGraph graph, Func<string, bool> isDown)

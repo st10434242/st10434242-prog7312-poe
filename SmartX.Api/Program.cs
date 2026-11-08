@@ -51,6 +51,7 @@ builder.Services.AddSingleton(serviceProvider =>
 builder.Services.AddHostedService<StalenessSweeper>();
 builder.Services.AddHostedService<QueueProcessor>();
 builder.Services.AddHostedService<InsightPublisher>();
+builder.Services.AddHostedService<MeshPublisher>();
 
 builder.Services.AddSignalR();
 builder.Services.AddHealthChecks();
