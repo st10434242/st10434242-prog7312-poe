@@ -131,3 +131,62 @@ public sealed record RerouteDto
         NewHops = reroute.NewHops
     };
 }
+
+public sealed record MstDto
+{
+    public required string Root { get; init; }
+
+    public required string Algorithm { get; init; }
+
+    public required IReadOnlyList<MeshEdgeDto> Edges { get; init; }
+
+    // What it costs to keep every spanned node connected, lower means less radio energy overall
+    public required double TotalCost { get; init; }
+
+    public required int SpannedCount { get; init; }
+
+    public required IReadOnlyList<string> Unspanned { get; init; }
+
+    public required double ComputeMicroseconds { get; init; }
+
+    public static MstDto FromTree(SpanningTree tree, TimeSpan elapsed) => new()
+    {
+        Root = tree.Root,
+        Algorithm = tree.Algorithm,
+        Edges = [.. tree.Edges.Select(MeshEdgeDto.FromLink)],
+        TotalCost = tree.TotalCost,
+        SpannedCount = tree.SpannedCount,
+        Unspanned = tree.Unspanned,
+        ComputeMicroseconds = Math.Round(elapsed.TotalMicroseconds, 1)
+    };
+}
+
+public sealed record RouteHopDto
+{
+    public required string From { get; init; }
+
+    public required string To { get; init; }
+
+    public required int RssiDbm { get; init; }
+
+    public required double Cost { get; init; }
+}
+
+public sealed record RouteDto
+{
+    public required string NodeId { get; init; }
+
+    public string? Mac { get; init; }
+
+    public required MeshNodeState State { get; init; }
+
+    // False when the node is down or orphaned and has no route home
+    public required bool Reachable { get; init; }
+
+    // Ordered from the node to the gateway
+    public required IReadOnlyList<RouteHopDto> Hops { get; init; }
+
+    public int HopCount => Hops.Count;
+
+    public double TotalCost => Math.Round(Hops.Sum(h => h.Cost), 2);
+}

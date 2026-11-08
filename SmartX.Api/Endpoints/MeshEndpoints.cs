@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using SmartX.Core;
 using SmartX.Core.Contracts;
 
@@ -17,6 +18,8 @@ public static class MeshEndpoints
         group.MapGet("/", GetMesh);
         group.MapGet("/reach", GetReach);
         group.MapGet("/reroutes", GetReroutes);
+        group.MapGet("/mst", GetMst);
+        group.MapGet("/route/{nodeIdOrMac}", GetRoute);
 
         return group;
     }
@@ -116,6 +119,55 @@ public static class MeshEndpoints
         MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
 
         return Results.Ok(MeshReachability.FindReroutes(view.Graph, health.IsDown).Select(RerouteDto.FromReroute));
+    }
+
+    private static IResult GetMst(MeshNetwork network, MeshHealth health)
+    {
+        MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
+
+        long started = Stopwatch.GetTimestamp();
+        SpanningTree tree = PrimMst.Build(view.Graph, MeshRadio.GatewayId, health.IsDown);
+        TimeSpan elapsed = Stopwatch.GetElapsedTime(started);
+
+        return Results.Ok(MstDto.FromTree(tree, elapsed));
+    }
+
+    // The path a node's packets take home, following the spanning tree up to the gateway
+    private static IResult GetRoute(string nodeIdOrMac, MeshNetwork network, SensorRegistry registry, MeshHealth health)
+    {
+        if (!TryResolveVertex(nodeIdOrMac, registry, out string nodeId))
+        {
+            return Results.Problem($"No node matches '{nodeIdOrMac}'.", statusCode: 404);
+        }
+
+        MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
+
+        if (!view.Graph.HasVertex(nodeId))
+        {
+            return Results.Problem($"'{nodeId}' hasn't reported any neighbours yet.", statusCode: 404);
+        }
+
+        SpanningTree tree = PrimMst.Build(view.Graph, MeshRadio.GatewayId, health.IsDown);
+        registry.TryGet(nodeId, out SensorRegistration? sensor);
+
+        MeshNodeState state = health.IsDown(nodeId)
+            ? MeshNodeState.Down
+            : tree.Contains(nodeId) ? MeshNodeState.Up : MeshNodeState.Orphaned;
+
+        return Results.Ok(new RouteDto
+        {
+            NodeId = nodeId,
+            Mac = sensor?.Mac.ToString(),
+            State = state,
+            Reachable = state == MeshNodeState.Up,
+            Hops = [.. tree.RouteToRoot(nodeId).Select(hop => new RouteHopDto
+            {
+                From = hop.From,
+                To = hop.To,
+                RssiDbm = hop.RssiDbm,
+                Cost = hop.Cost
+            })]
+        });
     }
 
     private static MeshNodeDto ToNodeDto(
