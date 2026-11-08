@@ -2,4 +2,5 @@
   <Project Path="SmartX.Api/SmartX.Api.csproj" />
   <Project Path="SmartX.Core/SmartX.Core.csproj" Id="c9102486-26ef-40d3-8107-71e40cb2f4e6" />
   <Project Path="SmartX.Simulator/SmartX.Simulator.csproj" />
+  <Project Path="SmartX.Tests/SmartX.Tests.csproj" />
 </Solution>
