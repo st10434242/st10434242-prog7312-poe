@@ -49,6 +49,12 @@ public class Worker(
         {
             await CollectCommandsAsync(client, fleet, stoppingToken);
             await PublishTickAsync(client, fleet, bySubZone, tick, stoppingToken);
+
+            if (tick % _options.NeighbourReportEveryNTicks == 0)
+            {
+                await ReportNeighboursAsync(client, fleet, stoppingToken);
+            }
+
             tick++;
 
             if (!await DelayAsync(stoppingToken))
@@ -237,6 +243,55 @@ public class Worker(
         {
             // The loop is the retry, so a gateway that is not up yet just means waiting a tick
             logger.LogWarning("Gateway unreachable: {Message}", ex.Message);
+        }
+    }
+
+    // Every awake node beacons who it can hear, a silent node neither reports nor shows up in anyone else's table
+    private async Task ReportNeighboursAsync(
+        HttpClient client,
+        List<SimulatedSensor> fleet,
+        CancellationToken cancellationToken)
+    {
+        List<RadioNode> awake = [.. fleet
+            .Where(s => !s.IsSilent)
+            .Select(s => new RadioNode(s.NodeId, s.Position))];
+
+        // The gateway's radio beacons like everyone else so the graph knows where it sits
+        awake.Add(new RadioNode(MeshRadio.GatewayId, MeshLayout.GatewayPosition(_options)));
+
+        IEnumerable<Task<bool>> posts = awake
+            .Select(node => MeshLayout.ReportFor(node, awake, _options.MaxNeighbours))
+            .Select(report => PostReportAsync(client, report, cancellationToken));
+
+        bool[] results = await Task.WhenAll(posts);
+        int accepted = results.Count(r => r);
+
+        if (accepted < results.Length)
+        {
+            logger.LogWarning("Gateway took {Accepted} of {Count} neighbour reports", accepted, results.Length);
+        }
+    }
+
+    private static async Task<bool> PostReportAsync(
+        HttpClient client,
+        NeighbourReportDto report,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            HttpResponseMessage response =
+                await client.PostAsJsonAsync("/api/mesh/neighbours", report, cancellationToken);
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            // Same as readings, the next report is the retry
+            return false;
         }
     }
 

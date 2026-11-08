@@ -55,12 +55,15 @@ public static class FleetBuilder
     {
         index++;
 
+        string nodeId = $"{prefix}-Z{zone}S{sub}-{n:00}";
+
         // Split over two bytes so a big load test fleet still gets valid MACs
         return new SimulatedSensor(
-            nodeId: $"{prefix}-Z{zone}S{sub}-{n:00}",
+            nodeId: nodeId,
             mac: $"AA:BB:{zone:X2}:{sub:X2}:{index >> 8:X2}:{index & 0xFF:X2}",
             location: location,
             category: category,
-            publishEveryNTicks: everyNTicks);
+            publishEveryNTicks: everyNTicks,
+            position: MeshLayout.PositionFor(nodeId, zone, sub));
     }
 }

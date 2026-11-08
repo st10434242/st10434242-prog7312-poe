@@ -17,8 +17,7 @@ public static class MeshRadio
 
     public static bool IsUsable(int rssiDbm) => rssiDbm >= SensitivityDbm;
 
-    // Weak links drop more frames, so a packet needs more retries and more transmit energy to get across.
-    // Quality 1 means one transmission, quality 0.25 means roughly four.
+    // Weak links drop more frames, so quality 0.25 means roughly four tries (and four times the energy) per packet
     public static double CostFor(int rssiDbm)
     {
         double quality = (double)(rssiDbm - SensitivityDbm) / (StrongDbm - SensitivityDbm);

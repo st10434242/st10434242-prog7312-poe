@@ -7,8 +7,7 @@ namespace SmartX.Simulator;
 // What the rest of the sub-zone is doing this tick, so overrides actually change what the sensors report
 public readonly record struct SubZoneConditions(bool Irrigating, bool Powered);
 
-// One fake device. It keeps its own baseline so readings drift like hardware instead of jumping
-// around at random, which is what makes a spike actually look like a spike on a sparkline.
+// One fake device, it keeps its own baseline so readings drift like hardware and a spike actually stands out
 public sealed class SimulatedSensor
 {
     // An ESP32 only has so much RAM to hold readings while the gateway can't hear it
@@ -27,18 +26,20 @@ public sealed class SimulatedSensor
         string mac,
         string location,
         SensorCategory category,
-        int publishEveryNTicks)
+        int publishEveryNTicks,
+        FloorPosition position)
     {
         NodeId = nodeId;
         Mac = mac;
         Location = location;
         Category = category;
         PublishEveryNTicks = publishEveryNTicks;
+        Position = position;
         Actuator = category == SensorCategory.Actuator ? CommandTypes.KindFor(nodeId) : null;
 
         (_min, _max, _noise, _spikeSize) = category switch
         {
-            SensorCategory.Environmental => (35d, 55d, 1.5d, 45d),      // soil moisture percent
+            SensorCategory.Environmental => (35d, 55d, 1.5d, 45d), // soil moisture percent
             SensorCategory.PowerConsumption => (400d, 750d, 30d, 600d), // watts
             _ => (0d, 1d, 0d, 0d)
         };
@@ -57,6 +58,8 @@ public sealed class SimulatedSensor
     public ActuatorKind? Actuator { get; }
 
     public int PublishEveryNTicks { get; }
+
+    public FloorPosition Position { get; }
 
     public bool IsSilent { get; private set; }
 

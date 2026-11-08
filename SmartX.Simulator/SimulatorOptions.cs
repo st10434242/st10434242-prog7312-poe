@@ -29,4 +29,9 @@ public sealed class SimulatorOptions
     public double SilenceChance { get; set; } = 0.005;
 
     public double RecoverChance { get; set; } = 0.1;
+
+    // Neighbour tables change slowly, so they go out less often than readings
+    public int NeighbourReportEveryNTicks { get; set; } = 5;
+
+    public int MaxNeighbours { get; set; } = 8;
 }
