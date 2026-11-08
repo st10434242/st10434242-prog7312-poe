@@ -14,6 +14,7 @@ public sealed class QueueProcessor(
     NodeStateTracker tracker,
     DeviceTable devices,
     TimelineLog timeline,
+    TelemetryHistoryIndex history,
     FaultSet faultSet,
     PatternLearner learner,
     IHubContext<TelemetryHub> hub,
@@ -110,6 +111,7 @@ public sealed class QueueProcessor(
 
             devices.RecordReading(reading, alerted);
             timeline.RecordReading(reading.NodeId, reading.TimestampUtc, ToNumber(reading.Value));
+            history.Add(reading.NodeId, reading.TimestampUtc, ToNumber(reading.Value));
 
             await hub.Clients.All.SendAsync("ReadingReceived", reading, cancellationToken);
         }

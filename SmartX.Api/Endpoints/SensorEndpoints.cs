@@ -68,7 +68,7 @@ public static class SensorEndpoints
             ? Results.Ok(ToDto(registration, tracker, store))
             : Results.NotFound();
 
-    private static IResult Delete(string nodeId, SensorRegistry registry, DeviceTable devices, TimelineLog timeline, FaultSet faultSet, CommandOutbox outbox, MeshNetwork network)
+    private static IResult Delete(string nodeId, SensorRegistry registry, DeviceTable devices, TimelineLog timeline, FaultSet faultSet, CommandOutbox outbox, MeshNetwork network, TelemetryHistoryIndex history)
     {
         if (!registry.Remove(nodeId))
         {
@@ -80,6 +80,7 @@ public static class SensorEndpoints
         faultSet.Remove(nodeId);
         outbox.Remove(nodeId);
         network.Remove(nodeId);
+        history.Remove(nodeId);
         return Results.NoContent();
     }
 

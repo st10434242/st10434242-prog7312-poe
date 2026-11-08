@@ -23,6 +23,7 @@ builder.Services.AddSingleton<PatternLearner>();
 builder.Services.AddSingleton<InsightEngine>();
 builder.Services.AddSingleton<MeshNetwork>();
 builder.Services.AddSingleton<MeshHealth>();
+builder.Services.AddSingleton<TelemetryHistoryIndex>();
 
 builder.Services.AddSingleton(serviceProvider =>
 {
@@ -52,6 +53,7 @@ builder.Services.AddHostedService<StalenessSweeper>();
 builder.Services.AddHostedService<QueueProcessor>();
 builder.Services.AddHostedService<InsightPublisher>();
 builder.Services.AddHostedService<MeshPublisher>();
+builder.Services.AddHostedService<HistorySeeder>();
 
 builder.Services.AddSignalR();
 builder.Services.AddHealthChecks();
