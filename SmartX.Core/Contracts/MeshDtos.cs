@@ -132,7 +132,8 @@ public sealed record RerouteDto
     };
 }
 
-public sealed record MstDto
+// Either the MST backbone or the Dijkstra shortest path tree, both are rooted at the gateway
+public sealed record SpanningTreeDto
 {
     public required string Root { get; init; }
 
@@ -140,7 +141,7 @@ public sealed record MstDto
 
     public required IReadOnlyList<MeshEdgeDto> Edges { get; init; }
 
-    // What it costs to keep every spanned node connected, lower means less radio energy overall
+    // Sum of every link in the tree, for the MST this is the radio energy to keep everyone connected
     public required double TotalCost { get; init; }
 
     public required int SpannedCount { get; init; }
@@ -149,7 +150,7 @@ public sealed record MstDto
 
     public required double ComputeMicroseconds { get; init; }
 
-    public static MstDto FromTree(SpanningTree tree, TimeSpan elapsed) => new()
+    public static SpanningTreeDto FromTree(SpanningTree tree, TimeSpan elapsed) => new()
     {
         Root = tree.Root,
         Algorithm = tree.Algorithm,
@@ -172,6 +173,30 @@ public sealed record RouteHopDto
     public required double Cost { get; init; }
 }
 
+// One way home for a node, from the node to the gateway
+public sealed record RoutePathDto
+{
+    public required string Algorithm { get; init; }
+
+    public required IReadOnlyList<RouteHopDto> Hops { get; init; }
+
+    public int HopCount => Hops.Count;
+
+    public double TotalCost => Math.Round(Hops.Sum(h => h.Cost), 2);
+
+    public static RoutePathDto FromTree(SpanningTree tree, string nodeId) => new()
+    {
+        Algorithm = tree.Algorithm,
+        Hops = [.. tree.RouteToRoot(nodeId).Select(hop => new RouteHopDto
+        {
+            From = hop.From,
+            To = hop.To,
+            RssiDbm = hop.RssiDbm,
+            Cost = hop.Cost
+        })]
+    };
+}
+
 public sealed record RouteDto
 {
     public required string NodeId { get; init; }
@@ -183,10 +208,9 @@ public sealed record RouteDto
     // False when the node is down or orphaned and has no route home
     public required bool Reachable { get; init; }
 
-    // Ordered from the node to the gateway
-    public required IReadOnlyList<RouteHopDto> Hops { get; init; }
+    // The route along the MST, part of the cheapest network overall
+    public required RoutePathDto Backbone { get; init; }
 
-    public int HopCount => Hops.Count;
-
-    public double TotalCost => Math.Round(Hops.Sum(h => h.Cost), 2);
+    // The cheapest route for this node on its own
+    public required RoutePathDto Shortest { get; init; }
 }

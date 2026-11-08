@@ -19,6 +19,7 @@ public static class MeshEndpoints
         group.MapGet("/reach", GetReach);
         group.MapGet("/reroutes", GetReroutes);
         group.MapGet("/mst", GetMst);
+        group.MapGet("/shortest", GetShortest);
         group.MapGet("/route/{nodeIdOrMac}", GetRoute);
 
         return group;
@@ -121,18 +122,27 @@ public static class MeshEndpoints
         return Results.Ok(MeshReachability.FindReroutes(view.Graph, health.IsDown).Select(RerouteDto.FromReroute));
     }
 
-    private static IResult GetMst(MeshNetwork network, MeshHealth health)
+    private static IResult GetMst(MeshNetwork network, MeshHealth health) =>
+        BuildTree(network, health, PrimMst.Build);
+
+    private static IResult GetShortest(MeshNetwork network, MeshHealth health) =>
+        BuildTree(network, health, DijkstraRoutes.Build);
+
+    private static IResult BuildTree(
+        MeshNetwork network,
+        MeshHealth health,
+        Func<MeshGraph, string, Func<string, bool>, SpanningTree> algorithm)
     {
         MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
 
         long started = Stopwatch.GetTimestamp();
-        SpanningTree tree = PrimMst.Build(view.Graph, MeshRadio.GatewayId, health.IsDown);
+        SpanningTree tree = algorithm(view.Graph, MeshRadio.GatewayId, health.IsDown);
         TimeSpan elapsed = Stopwatch.GetElapsedTime(started);
 
-        return Results.Ok(MstDto.FromTree(tree, elapsed));
+        return Results.Ok(SpanningTreeDto.FromTree(tree, elapsed));
     }
 
-    // The path a node's packets take home, following the spanning tree up to the gateway
+    // Both ways home side by side, the MST backbone route and the node's own cheapest route
     private static IResult GetRoute(string nodeIdOrMac, MeshNetwork network, SensorRegistry registry, MeshHealth health)
     {
         if (!TryResolveVertex(nodeIdOrMac, registry, out string nodeId))
@@ -147,12 +157,13 @@ public static class MeshEndpoints
             return Results.Problem($"'{nodeId}' hasn't reported any neighbours yet.", statusCode: 404);
         }
 
-        SpanningTree tree = PrimMst.Build(view.Graph, MeshRadio.GatewayId, health.IsDown);
+        SpanningTree backbone = PrimMst.Build(view.Graph, MeshRadio.GatewayId, health.IsDown);
+        SpanningTree shortest = DijkstraRoutes.Build(view.Graph, MeshRadio.GatewayId, health.IsDown);
         registry.TryGet(nodeId, out SensorRegistration? sensor);
 
         MeshNodeState state = health.IsDown(nodeId)
             ? MeshNodeState.Down
-            : tree.Contains(nodeId) ? MeshNodeState.Up : MeshNodeState.Orphaned;
+            : backbone.Contains(nodeId) ? MeshNodeState.Up : MeshNodeState.Orphaned;
 
         return Results.Ok(new RouteDto
         {
@@ -160,13 +171,8 @@ public static class MeshEndpoints
             Mac = sensor?.Mac.ToString(),
             State = state,
             Reachable = state == MeshNodeState.Up,
-            Hops = [.. tree.RouteToRoot(nodeId).Select(hop => new RouteHopDto
-            {
-                From = hop.From,
-                To = hop.To,
-                RssiDbm = hop.RssiDbm,
-                Cost = hop.Cost
-            })]
+            Backbone = RoutePathDto.FromTree(backbone, nodeId),
+            Shortest = RoutePathDto.FromTree(shortest, nodeId)
         });
     }
 
