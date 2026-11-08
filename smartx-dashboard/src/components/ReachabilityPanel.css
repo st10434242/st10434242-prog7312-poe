@@ -1,0 +1,157 @@
+.reach {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.reach__controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.reach__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.reach__counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+}
+
+.reach__counts li,
+.reach__section h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.reach__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.reach__dot--up {
+  background: var(--normal);
+}
+
+.reach__dot--down {
+  background: var(--alert);
+}
+
+.reach__dot--orphaned {
+  background: var(--caution);
+}
+
+.reach__note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.reach__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.reach__section h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Hop count on the left, everyone that far away on the right */
+.reach__ring {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.reach__hops {
+  padding-top: 2px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.reach__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.reach__chip {
+  padding: 1px var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.reach__chip:hover {
+  color: var(--text);
+  border-color: var(--border-bright);
+}
+
+/* Reroute suggestions */
+.reroutes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reroutes__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+}
+
+.reroutes__node {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.reroutes__node:hover {
+  text-decoration: underline;
+}
+
+.reroutes__detail {
+  color: var(--text-muted);
+}
+
+.reroutes__detail strong {
+  color: var(--route-short);
+  font-weight: 600;
+}
+
+.reroutes__lost {
+  color: var(--caution);
+}

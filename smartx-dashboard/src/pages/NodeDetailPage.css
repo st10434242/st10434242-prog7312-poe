@@ -10,6 +10,19 @@
   color: var(--accent);
 }
 
+.node__link {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.node__link:hover {
+  color: var(--text);
+  border-color: var(--border-bright);
+}
+
 .node__title {
   font-family: var(--mono);
   font-size: 1.5rem;

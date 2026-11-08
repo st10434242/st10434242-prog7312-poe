@@ -2,19 +2,29 @@ import type {
   Activity,
   Alert,
   Attachment,
+  BenchmarkRow,
   CommandHistory,
   CommandRecord,
   Device,
   DeviceFilter,
   Faults,
+  HistoryCoverage,
+  HistoryRange,
   Insight,
   IssueCommand,
+  MeshReroute,
+  MeshRoute,
+  MeshSnapshot,
+  MstAlgorithm,
+  MstComparison,
   NodeHistory,
   NodeTimeline,
   Pattern,
   QueueStats,
+  Reach,
   Sensor,
   SensorRegistration,
+  SpanningTree,
   TimelineEvent,
   Topology,
   ValidationProblem,
@@ -176,4 +186,55 @@ export const api = {
     request<void>(`/api/insights/${encodeURIComponent(id)}/dismiss`, { method: 'POST' }),
 
   getPatterns: () => request<Pattern[]>('/api/insights/patterns'),
+
+  getMesh: () => request<MeshSnapshot>('/api/mesh'),
+
+  getReach: (from?: string, zone?: string) => {
+    const query = new URLSearchParams()
+
+    if (from) {
+      query.set('from', from)
+    }
+
+    if (zone) {
+      query.set('zone', zone)
+    }
+
+    return request<Reach>(`/api/mesh/reach?${query}`)
+  },
+
+  getReroutes: () => request<MeshReroute[]>('/api/mesh/reroutes'),
+
+  getMst: (algorithm: MstAlgorithm = 'Prim') =>
+    request<SpanningTree>(`/api/mesh/mst?algorithm=${algorithm.toLowerCase()}`),
+
+  compareMst: () => request<MstComparison>('/api/mesh/mst/compare'),
+
+  getShortest: () => request<SpanningTree>('/api/mesh/shortest'),
+
+  // Takes a node id or a MAC in any format, the gateway works out which
+  getRoute: (nodeIdOrMac: string) =>
+    request<MeshRoute>(`/api/mesh/route/${encodeURIComponent(nodeIdOrMac.trim())}`),
+
+  getHistoryCoverage: () => request<HistoryCoverage[]>('/api/history'),
+
+  getHistoryRange: (nodeIdOrMac: string, from: Date, to: Date, limit = 2000) => {
+    const query = new URLSearchParams({ from: from.toISOString(), to: to.toISOString(), limit: String(limit) })
+
+    return request<HistoryRange>(`/api/history/${encodeURIComponent(nodeIdOrMac.trim())}?${query}`)
+  },
+
+  runBenchmark: (sizes?: number[], windowMinutes?: number) => {
+    const query = new URLSearchParams()
+
+    if (sizes?.length) {
+      query.set('sizes', sizes.join(','))
+    }
+
+    if (windowMinutes) {
+      query.set('windowMinutes', String(windowMinutes))
+    }
+
+    return request<BenchmarkRow[]>(`/api/history/benchmark?${query}`)
+  },
 }

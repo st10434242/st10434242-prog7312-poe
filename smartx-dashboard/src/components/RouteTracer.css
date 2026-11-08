@@ -1,0 +1,226 @@
+.tracer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tracer__search {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.tracer__search .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.tracer__error {
+  margin: 0;
+  color: var(--alert);
+  font-size: 0.8rem;
+}
+
+.tracer__node {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tracer__node > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tracer__mac {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.tracer__state {
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.tracer__state--up {
+  color: var(--normal);
+}
+
+.tracer__state--down {
+  color: var(--alert);
+}
+
+.tracer__state--orphaned {
+  color: var(--caution);
+}
+
+.tracer__notice {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--caution) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--caution) 10%, transparent);
+  font-size: 0.8rem;
+}
+
+.tracer__notice--alert {
+  border-color: color-mix(in srgb, var(--alert) 45%, transparent);
+  background: color-mix(in srgb, var(--alert) 10%, transparent);
+}
+
+.tracer__summary {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.tracer__blocked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.tracer__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+/* One route */
+.hops {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.hops--mst {
+  --hops-colour: var(--route-mst);
+}
+
+.hops--short {
+  --hops-colour: var(--route-short);
+}
+
+.hops__head {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-2);
+}
+
+.hops__head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--hops-colour);
+}
+
+/* Same colour as the line on the map so the list and the route are easy to match up */
+.hops__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hops-colour);
+}
+
+.hops__head span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.hops__list {
+  max-height: 420px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.hops__item {
+  position: relative;
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
+  font-size: 0.75rem;
+}
+
+.hops__item--start {
+  padding-bottom: 2px;
+}
+
+.hops__link {
+  display: block;
+  padding: 2px 0;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+.hops__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-bottom: 2px;
+}
+
+.hops__node {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.75rem;
+  text-align: left;
+}
+
+button.hops__node:hover {
+  color: var(--hops-colour);
+  text-decoration: underline;
+}
+
+/* Only shows on hover or focus so the full node id gets the room the rest of the time */
+.hops__silence {
+  position: absolute;
+  right: 0;
+  opacity: 0;
+  padding: 0 var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 0.65rem;
+}
+
+.hops__row:hover .hops__silence,
+.hops__silence:focus-visible {
+  opacity: 1;
+}
+
+/* Touch screens can't hover, so the button just stays visible there */
+@media (hover: none) {
+  .hops__silence {
+    position: static;
+    opacity: 1;
+  }
+}
+
+.hops__silence:hover {
+  color: var(--alert);
+  border-color: var(--alert);
+}
+
+@media (max-width: 1200px) and (min-width: 961px) {
+  .tracer__columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

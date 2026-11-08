@@ -9,6 +9,7 @@ import { LandingPage } from './pages/LandingPage'
 import { NodeDetailPage } from './pages/NodeDetailPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { TelemetryPage } from './pages/TelemetryPage'
+import { TopologyPage } from './pages/TopologyPage'
 
 // Providers sit above the router so the connection and fleet state outlive any one page
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/telemetry" element={<TelemetryPage />} />
                   <Route path="/commands" element={<CommandStreamPage />} />
+                  <Route path="/topology" element={<TopologyPage />} />
                   <Route path="/node/:nodeId" element={<NodeDetailPage />} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Route>

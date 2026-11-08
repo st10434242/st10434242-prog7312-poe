@@ -11,6 +11,7 @@ export const HUB_EVENTS = [
   'CommandIssued',
   'CommandReverted',
   'InsightsUpdated',
+  'MeshChanged',
 ] as const
 
 export type HubEvent = (typeof HUB_EVENTS)[number]

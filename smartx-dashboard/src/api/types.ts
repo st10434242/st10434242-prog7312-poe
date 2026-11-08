@@ -231,3 +231,167 @@ export interface Pattern {
   count: number
   confidence: number
 }
+
+// Network topology and mesh routing
+
+export type MeshNodeState = 'Up' | 'Down' | 'Orphaned'
+
+export type MstAlgorithm = 'Prim' | 'Kruskal'
+
+export interface MeshNode {
+  nodeId: string
+  mac: string | null
+  location: string | null
+  category: SensorCategory | null
+  x: number
+  y: number
+  isGateway: boolean
+  state: MeshNodeState
+}
+
+export interface MeshEdge {
+  from: string
+  to: string
+  rssiDbm: number
+  cost: number
+}
+
+export interface MeshSnapshot {
+  nodes: MeshNode[]
+  edges: MeshEdge[]
+  generatedAtUtc: string
+}
+
+export interface ReachedNode {
+  nodeId: string
+  hops: number
+  via: string | null
+}
+
+export interface Reach {
+  start: string
+  zone: string | null
+  connected: ReachedNode[]
+  down: string[]
+  orphaned: string[]
+}
+
+export interface MeshReroute {
+  nodeId: string
+  blockedBy: string[]
+  oldNextHop: string | null
+  oldHops: number
+  newNextHop: string | null
+  newHops: number | null
+  isOrphaned: boolean
+}
+
+export interface SpanningTree {
+  root: string
+  algorithm: string
+  edges: MeshEdge[]
+  totalCost: number
+  spannedCount: number
+  unspanned: string[]
+  computeMicroseconds: number
+}
+
+export interface MstComparison {
+  primTotalCost: number
+  kruskalTotalCost: number
+  primMicroseconds: number
+  kruskalMicroseconds: number
+  edgeCount: number
+  sharedEdges: number
+  match: boolean
+}
+
+export interface RouteHop {
+  from: string
+  to: string
+  rssiDbm: number
+  cost: number
+}
+
+export interface RoutePath {
+  algorithm: string
+  hops: RouteHop[]
+  hopCount: number
+  totalCost: number
+}
+
+export interface MeshRoute {
+  nodeId: string
+  mac: string | null
+  state: MeshNodeState
+  reachable: boolean
+  backbone: RoutePath
+  shortest: RoutePath
+  blockedBy: string[]
+  usual: RoutePath
+  rerouted: boolean
+}
+
+export interface NodeStateChange {
+  nodeId: string
+  from: MeshNodeState | null
+  to: MeshNodeState | null
+}
+
+export interface MeshChanged {
+  up: number
+  down: number
+  orphaned: number
+  links: number
+  backboneCost: number
+  changes: NodeStateChange[]
+  linksChanged: boolean
+  changedAtUtc: string
+}
+
+// Historical telemetry from the AVL index
+
+export interface HistoryCoverage {
+  nodeId: string
+  mac: string
+  category: SensorCategory
+  readings: number
+  oldestUtc: string | null
+  newestUtc: string | null
+}
+
+export interface HistoryPoint {
+  timestampUtc: string
+  value: number
+}
+
+export interface HistoryRange {
+  nodeId: string
+  mac: string
+  category: SensorCategory
+  fromUtc: string
+  toUtc: string
+  points: HistoryPoint[]
+  downsampled: boolean
+  count: number
+  min: number | null
+  max: number | null
+  average: number | null
+  nodesVisited: number
+  treeSize: number
+  treeHeight: number
+  queryMicroseconds: number
+}
+
+export interface BenchmarkRow {
+  size: number
+  windowMinutes: number
+  treeHeight: number
+  buildMilliseconds: number
+  averageResults: number
+  avlMicroseconds: number
+  avlNodesVisited: number
+  listMicroseconds: number
+  listItemsScanned: number
+  speedup: number
+}

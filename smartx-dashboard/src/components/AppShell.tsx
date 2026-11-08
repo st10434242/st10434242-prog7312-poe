@@ -23,29 +23,17 @@ export function AppShell() {
               Overview
             </NavLink>
 
-            {modules.map((module) =>
-              module.route ? (
-                <NavLink key={module.name} to={module.route} className="shell__link">
-                  {module.shortName}
-                  {/* Shows on every page so a new suggestion is not missed while you are on the wall */}
-                  {module.route === '/commands' && insights.length > 0 && (
-                    <span className="shell__badge" aria-label={`${insights.length} suggested actions`}>
-                      {insights.length}
-                    </span>
-                  )}
-                </NavLink>
-              ) : (
-                <span
-                  key={module.name}
-                  className="shell__link shell__link--locked"
-                  aria-disabled="true"
-                  title={`Coming in ${module.lockedUntil}`}
-                >
-                  {module.shortName}
-                  <span className="shell__lock">{module.lockedUntil}</span>
-                </span>
-              ),
-            )}
+            {modules.map((module) => (
+              <NavLink key={module.name} to={module.route} className="shell__link">
+                {module.shortName}
+                {/* Shows on every page so a new suggestion is not missed while you are on the wall */}
+                {module.route === '/commands' && insights.length > 0 && (
+                  <span className="shell__badge" aria-label={`${insights.length} suggested actions`}>
+                    {insights.length}
+                  </span>
+                )}
+              </NavLink>
+            ))}
           </nav>
 
           <ConnectionIndicator status={status} />

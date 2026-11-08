@@ -2,8 +2,7 @@ export interface Module {
   name: string
   shortName: string
   description: string
-  route?: string
-  lockedUntil?: string
+  route: string
 }
 
 // The three architectural pillars from the brief, shared by the landing page and the nav bar
@@ -25,7 +24,8 @@ export const modules: Module[] = [
   {
     name: 'Network Topology and Mesh Routing',
     shortName: 'Topology',
-    description: 'Trace how packets hop between nodes and where the mesh is routing around failures.',
-    lockedUntil: 'Final PoE',
+    description:
+      'Map the mesh, trace any MAC back to the gateway, see who is cut off when a relay drops and browse past telemetry.',
+    route: '/topology',
   },
 ]

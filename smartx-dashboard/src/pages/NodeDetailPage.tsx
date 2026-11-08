@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { AttachmentsPanel } from '../components/AttachmentsPanel'
 import { Sparkline } from '../components/Sparkline'
@@ -81,6 +81,9 @@ function NodeDetail({ nodeId }: { nodeId: string }) {
         <div className="node__badges">
           <span className={`tile__band tile--${band.toLowerCase()}`}>{band}</span>
           <span className="connection__label">{liveness}</span>
+          <Link to={`/topology?node=${encodeURIComponent(sensor.nodeId)}`} className="node__link">
+            Mesh route and history
+          </Link>
         </div>
       </header>
 

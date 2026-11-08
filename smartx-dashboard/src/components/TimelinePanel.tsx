@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { SensorCategory } from '../api/types'
 import type { Tile } from '../hooks/useFleet'
 import { useTimeline } from '../hooks/useTimeline'
@@ -72,6 +73,13 @@ export function TimelinePanel({ tiles, nodeId, rangeMinutes, onSelect, onRange }
               </button>
             ))}
           </div>
+
+          {/* The live timeline only keeps recent packets, the topology page has the full history and the route */}
+          {tile && (
+            <Link to={`/topology?node=${encodeURIComponent(tile.nodeId)}`} className="panel__action">
+              Route and history
+            </Link>
+          )}
         </div>
       </header>
 

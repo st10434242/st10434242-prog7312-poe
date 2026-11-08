@@ -1,0 +1,251 @@
+.mesh-map {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mesh-map__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mesh-map__canvas {
+  position: relative;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.mesh-map__canvas svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Zones */
+.mesh-map__zone {
+  fill: color-mix(in srgb, var(--surface-raised) 60%, transparent);
+  stroke: var(--border);
+  stroke-dasharray: 4 4;
+}
+
+.mesh-map__zone-label {
+  fill: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Links */
+.mesh-map__edge {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  transition: stroke-opacity 0.2s;
+}
+
+.mesh-map__edge--tree {
+  stroke-width: 3;
+  stroke-opacity: 0.9;
+}
+
+.mesh-map__edge--faded {
+  stroke-opacity: 0.07;
+}
+
+.mesh-map__edge--dead {
+  stroke: var(--alert);
+  stroke-opacity: 0.35;
+  stroke-dasharray: 4 4;
+}
+
+.mesh-map__hit {
+  stroke: transparent;
+  stroke-width: 10;
+  cursor: help;
+}
+
+/* Traced routes, everything else steps back while one is showing */
+.mesh-map__canvas--tracing .mesh-map__edge {
+  stroke-opacity: 0.06;
+}
+
+.mesh-map__route {
+  stroke-linecap: round;
+}
+
+.mesh-map__route--mst {
+  stroke: var(--route-mst);
+  stroke-width: 9;
+  stroke-opacity: 0.55;
+}
+
+.mesh-map__route--short {
+  stroke: var(--route-short);
+  stroke-width: 3.5;
+}
+
+/* Nodes */
+.mesh-map__node {
+  cursor: pointer;
+}
+
+.mesh-map__node circle,
+.mesh-map__node rect {
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+
+.mesh-map__node--up circle {
+  fill: var(--normal);
+}
+
+.mesh-map__node--down circle {
+  fill: var(--alert);
+}
+
+.mesh-map__node--orphaned circle {
+  fill: var(--caution);
+}
+
+.mesh-map__node--gateway rect {
+  fill: var(--accent);
+}
+
+.mesh-map__node:hover circle,
+.mesh-map__node:hover rect {
+  stroke: var(--text);
+}
+
+.mesh-map__node .mesh-map__selected {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+}
+
+.mesh-map__hop {
+  fill: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.mesh-map__label {
+  fill: var(--text-muted);
+  font-size: 11px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+/* Hover card */
+.mesh-map__card {
+  position: absolute;
+  width: 220px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.mesh-map__card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--space-3);
+  margin: var(--space-2) 0 0;
+}
+
+.mesh-map__card dt {
+  color: var(--text-dim);
+}
+
+.mesh-map__card dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mesh-map__state--up {
+  color: var(--normal);
+}
+
+.mesh-map__state--down {
+  color: var(--alert);
+}
+
+.mesh-map__state--orphaned {
+  color: var(--caution);
+}
+
+/* Legend */
+.mesh-map__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.mesh-map__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mesh-map__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.mesh-map__swatch--gateway {
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.mesh-map__swatch--up {
+  background: var(--normal);
+}
+
+.mesh-map__swatch--down {
+  background: var(--alert);
+}
+
+.mesh-map__swatch--orphaned {
+  background: var(--caution);
+}
+
+.mesh-map__strength {
+  width: 28px;
+  height: 3px;
+  background: linear-gradient(to right, color-mix(in srgb, var(--accent) 15%, transparent), var(--accent));
+}
+
+.mesh-map__line {
+  width: 20px;
+  height: 0;
+}
+
+.mesh-map__line--tree {
+  border-top: 3px solid var(--accent);
+}
+
+.mesh-map__line--mst {
+  border-top: 5px solid color-mix(in srgb, var(--route-mst) 60%, transparent);
+}
+
+.mesh-map__line--short {
+  border-top: 3px solid var(--route-short);
+}
+
+.mesh-map__line--dead {
+  border-top: 2px dashed var(--alert);
+}

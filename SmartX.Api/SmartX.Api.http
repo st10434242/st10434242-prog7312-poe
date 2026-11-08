@@ -315,6 +315,163 @@ Content-Type: application/json
   "term": "PUMP-TEST"
 }
 
+###
+### Part 3, network topology and mesh routing
+###
+### The test nodes form a chain GATEWAY - SOIL - PUMP - VALVE, run 34 to 50 within a few minutes or rerun 35 to 38 first
+
+### 34. The gateway reports first, nodes only link to neighbours that have already reported
+POST {{host}}/api/mesh/neighbours
+Content-Type: application/json
+
+{
+  "nodeId": "GATEWAY",
+  "x": -5,
+  "y": 10,
+  "neighbours": []
+}
+
+### 35. Wake the soil sensor, pump and valve with a fresh reading each, a stale node counts as down for routing
+POST {{host}}/api/telemetry/batch
+Content-Type: application/json
+
+[
+  { "nodeId": "SOIL-TEST", "timestampUtc": "{{$datetime iso8601}}", "category": "Environmental", "valueKind": "Float", "value": 45.5 },
+  { "nodeId": "PUMP-TEST", "timestampUtc": "{{$datetime iso8601}}", "category": "Actuator", "valueKind": "Bool", "value": false },
+  { "nodeId": "VALVE-TEST", "timestampUtc": "{{$datetime iso8601}}", "category": "Actuator", "valueKind": "Bool", "value": false }
+]
+
+### 36. SOIL-TEST hears the gateway
+POST {{host}}/api/mesh/neighbours
+Content-Type: application/json
+
+{
+  "nodeId": "SOIL-TEST",
+  "x": 4,
+  "y": 12,
+  "neighbours": [
+    { "nodeId": "GATEWAY", "rssiDbm": -72 }
+  ]
+}
+
+### 37. PUMP-TEST hears the soil sensor well and the gateway only faintly
+POST {{host}}/api/mesh/neighbours
+Content-Type: application/json
+
+{
+  "nodeId": "PUMP-TEST",
+  "x": 12,
+  "y": 10,
+  "neighbours": [
+    { "nodeId": "SOIL-TEST", "rssiDbm": -65 },
+    { "nodeId": "GATEWAY", "rssiDbm": -86 }
+  ]
+}
+
+### 38. VALVE-TEST only hears the pump, so the pump is its only way home
+POST {{host}}/api/mesh/neighbours
+Content-Type: application/json
+
+{
+  "nodeId": "VALVE-TEST",
+  "x": 18,
+  "y": 12,
+  "neighbours": [
+    { "nodeId": "PUMP-TEST", "rssiDbm": -55 }
+  ]
+}
+
+### 39. The whole mesh, nodes with their state and every link with its RSSI and cost
+GET {{host}}/api/mesh
+
+### 40. BFS from the gateway narrowed to the test sub-zone, closest first
+GET {{host}}/api/mesh/reach?zone=FacilityA/Zone1/SubZoneB
+
+### 41. BFS starting from a node instead of the gateway
+GET {{host}}/api/mesh/reach?from=SOIL-TEST
+
+### 42. Minimum spanning tree with Prim
+GET {{host}}/api/mesh/mst?algorithm=prim
+
+### 43. Same tree with Kruskal
+GET {{host}}/api/mesh/mst?algorithm=kruskal
+
+### 44. Prim and Kruskal side by side, match should be true
+GET {{host}}/api/mesh/mst/compare
+
+### 45. Dijkstra shortest path tree, each node's cheapest way home
+GET {{host}}/api/mesh/shortest
+
+### 46. Trace VALVE-TEST by its MAC in a different format, backbone and shortest route
+GET {{host}}/api/mesh/route/aa-bb-cc-dd-ee-04
+
+### 47. Knock the pump out, the soil sensor can still reach the gateway on its own
+POST {{host}}/api/debug/silence/PUMP-TEST
+
+### 48. VALVE-TEST shows up as orphaned since the pump was its only way out
+GET {{host}}/api/mesh/reroutes
+
+### 49. Its route now says Orphaned and not reachable
+GET {{host}}/api/mesh/route/VALVE-TEST
+
+### 50. Bring the pump back
+DELETE {{host}}/api/debug/silence/PUMP-TEST
+
+### 51. Every node with how much history its AVL tree holds
+GET {{host}}/api/history
+
+### 52. History for the last hour by default
+GET {{host}}/api/history/METER-TEST
+
+### 53. 14:00 to 16:00 on the day the batch in the rejection cases was sent
+GET {{host}}/api/history/METER-TEST?from=2026-09-13T14:00:00Z&to=2026-09-13T16:00:00Z
+
+### 54. A simulated node by MAC with its seeded day of history (needs SmartX.Simulator running)
+GET {{host}}/api/history/AA:BB:03:02:00:1F?limit=200
+
+### 55. AVL range query against a list scan at a few sizes
+GET {{host}}/api/history/benchmark?sizes=1000,10000,100000&windowMinutes=10
+
+###
+### Part 3 rejection cases
+###
+
+### Neighbour report from a node that isn't registered (expect 404)
+POST {{host}}/api/mesh/neighbours
+Content-Type: application/json
+
+{
+  "nodeId": "GHOST",
+  "x": 0,
+  "y": 0,
+  "neighbours": []
+}
+
+### RSSI that no radio could report (expect 400)
+POST {{host}}/api/mesh/neighbours
+Content-Type: application/json
+
+{
+  "nodeId": "SOIL-TEST",
+  "x": 8,
+  "y": 12,
+  "neighbours": [
+    { "nodeId": "METER-TEST", "rssiDbm": 20 }
+  ]
+}
+
+### Unknown spanning tree algorithm (expect 400)
+GET {{host}}/api/mesh/mst?algorithm=boruvka
+
+### Route for a MAC nobody has (expect 404)
+GET {{host}}/api/mesh/route/FF:FF:FF:FF:FF:FF
+
+### History range where from is after to (expect 400)
+GET {{host}}/api/history/METER-TEST?from=2026-09-13T16:00:00Z&to=2026-09-13T14:00:00Z
+
+### Benchmark window wider than a day (expect 400)
+GET {{host}}/api/history/benchmark?sizes=1000&windowMinutes=5000
+
 ### Clean up
 DELETE {{host}}/api/sensors/METER-TEST
 

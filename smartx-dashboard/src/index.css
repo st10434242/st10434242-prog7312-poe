@@ -17,6 +17,10 @@
   --stale: #6e7681;
   --accent: #58a6ff;
 
+  /* The two traced routes need to stand apart from the status colours and from each other */
+  --route-mst: #d2a8ff;
+  --route-short: #39c5cf;
+
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;

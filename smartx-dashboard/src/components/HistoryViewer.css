@@ -1,0 +1,161 @@
+.hlog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.hlog__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.hlog__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.hlog__field select {
+  min-width: 220px;
+}
+
+.hlog__custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.hlog__muted {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
+.hlog__note {
+  padding: var(--space-2);
+  text-align: center;
+}
+
+/* Query stats */
+.hlog__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.hlog__stats div {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.hlog__stats dt {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.hlog__stats dd {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+}
+
+/* Chart on the left, the raw log on the right */
+.hlog__body {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.hlog__table-wrap {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.hlog__table-wrap--auto {
+  max-height: none;
+  overflow-x: auto;
+}
+
+.hlog__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.hlog__table th {
+  position: sticky;
+  top: 0;
+  padding: var(--space-1) var(--space-3);
+  background: var(--surface-raised);
+  color: var(--text-dim);
+  font-weight: 600;
+  text-align: left;
+}
+
+.hlog__table td {
+  padding: 2px var(--space-3);
+  border-top: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* Benchmark */
+.bench {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.bench__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.bench__head .panel__action {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bench__head h3 {
+  margin: 0 0 var(--space-1);
+  font-size: 0.85rem;
+}
+
+.bench__table td,
+.bench__table th {
+  text-align: right;
+}
+
+.bench__table td:first-child,
+.bench__table th:first-child {
+  text-align: left;
+}
+
+.bench__win {
+  color: var(--normal);
+}
+
+.bench__loss {
+  color: var(--caution);
+}
+
+@media (max-width: 960px) {
+  .hlog__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

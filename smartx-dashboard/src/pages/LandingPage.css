@@ -44,11 +44,6 @@
   transform: translateY(-2px);
 }
 
-.pillar--locked {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
 .pillar__index {
   font-family: var(--mono);
   font-size: 0.75rem;
@@ -82,10 +77,4 @@
   color: var(--normal);
   border-color: color-mix(in srgb, var(--normal) 40%, transparent);
   background: color-mix(in srgb, var(--normal) 12%, transparent);
-}
-
-.pillar__status--locked {
-  color: var(--text-muted);
-  border-color: var(--border-bright);
-  background: var(--surface-raised);
 }

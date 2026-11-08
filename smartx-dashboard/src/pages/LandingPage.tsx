@@ -8,7 +8,7 @@ export function LandingPage() {
       <p className="landing__brand">Smart-X</p>
       <h1 className="landing__title">IoT Mesh Ecosystem</h1>
       <p className="landing__subtitle">
-        Ingestion gateway and real-time command stream for distributed ESP32 sensor networks.
+        Ingestion gateway, real-time command stream and self-healing mesh routing for distributed ESP32 sensor networks.
       </p>
 
       <div className="pillars">
@@ -26,22 +26,9 @@ function PillarCard({ pillar, index }: { pillar: Module; index: number }) {
       <span className="pillar__index">{String(index).padStart(2, '0')}</span>
       <h2 className="pillar__name">{pillar.name}</h2>
       <p className="pillar__description">{pillar.description}</p>
-      <span
-        className={`pillar__status pillar__status--${pillar.route ? 'available' : 'locked'}`}
-      >
-        {pillar.route ? 'Available' : `Coming in ${pillar.lockedUntil}`}
-      </span>
+      <span className="pillar__status pillar__status--available">Open module</span>
     </>
   )
-
-  // Locked pillars stay visible so the full roadmap is legible without being reachable
-  if (!pillar.route) {
-    return (
-      <div className="pillar pillar--locked" aria-disabled="true">
-        {body}
-      </div>
-    )
-  }
 
   return (
     <Link to={pillar.route} className="pillar pillar--available">
