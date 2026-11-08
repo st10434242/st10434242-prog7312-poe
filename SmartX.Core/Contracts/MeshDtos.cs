@@ -214,3 +214,22 @@ public sealed record RouteDto
     // The cheapest route for this node on its own
     public required RoutePathDto Shortest { get; init; }
 }
+
+// Prim and Kruskal run on the same snapshot, a correct MST has one total cost even if ties pick different links
+public sealed record MstComparisonDto
+{
+    public required double PrimTotalCost { get; init; }
+
+    public required double KruskalTotalCost { get; init; }
+
+    public required double PrimMicroseconds { get; init; }
+
+    public required double KruskalMicroseconds { get; init; }
+
+    public required int EdgeCount { get; init; }
+
+    public required int SharedEdges { get; init; }
+
+    // Small tolerance since the two add the same costs up in a different order
+    public bool Match => Math.Abs(PrimTotalCost - KruskalTotalCost) < 0.01;
+}

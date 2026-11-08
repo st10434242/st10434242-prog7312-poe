@@ -19,6 +19,7 @@ public static class MeshEndpoints
         group.MapGet("/reach", GetReach);
         group.MapGet("/reroutes", GetReroutes);
         group.MapGet("/mst", GetMst);
+        group.MapGet("/mst/compare", CompareMst);
         group.MapGet("/shortest", GetShortest);
         group.MapGet("/route/{nodeIdOrMac}", GetRoute);
 
@@ -122,8 +123,52 @@ public static class MeshEndpoints
         return Results.Ok(MeshReachability.FindReroutes(view.Graph, health.IsDown).Select(RerouteDto.FromReroute));
     }
 
-    private static IResult GetMst(MeshNetwork network, MeshHealth health) =>
-        BuildTree(network, health, PrimMst.Build);
+    // Prim by default, ?algorithm=kruskal for the other one
+    private static IResult GetMst(MeshNetwork network, MeshHealth health, string? algorithm)
+    {
+        if (algorithm is null || algorithm.Equals(PrimMst.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return BuildTree(network, health, PrimMst.Build);
+        }
+
+        if (algorithm.Equals(KruskalMst.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return BuildTree(network, health, KruskalMst.Build);
+        }
+
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            [nameof(algorithm)] = ["Use prim or kruskal."]
+        });
+    }
+
+    private static IResult CompareMst(MeshNetwork network, MeshHealth health)
+    {
+        MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
+
+        (SpanningTree prim, TimeSpan primTime) = Timed(() => PrimMst.Build(view.Graph, MeshRadio.GatewayId, health.IsDown));
+        (SpanningTree kruskal, TimeSpan kruskalTime) = Timed(() => KruskalMst.Build(view.Graph, MeshRadio.GatewayId, health.IsDown));
+
+        // Links are shared objects in the graph so a reference match means the exact same link
+        HashSet<MeshLink> primEdges = new(prim.Edges, ReferenceEqualityComparer.Instance);
+
+        return Results.Ok(new MstComparisonDto
+        {
+            PrimTotalCost = prim.TotalCost,
+            KruskalTotalCost = kruskal.TotalCost,
+            PrimMicroseconds = Math.Round(primTime.TotalMicroseconds, 1),
+            KruskalMicroseconds = Math.Round(kruskalTime.TotalMicroseconds, 1),
+            EdgeCount = prim.Edges.Count,
+            SharedEdges = kruskal.Edges.Count(primEdges.Contains)
+        });
+    }
+
+    private static (SpanningTree Tree, TimeSpan Elapsed) Timed(Func<SpanningTree> build)
+    {
+        long started = Stopwatch.GetTimestamp();
+        SpanningTree tree = build();
+        return (tree, Stopwatch.GetElapsedTime(started));
+    }
 
     private static IResult GetShortest(MeshNetwork network, MeshHealth health) =>
         BuildTree(network, health, DijkstraRoutes.Build);
@@ -135,9 +180,7 @@ public static class MeshEndpoints
     {
         MeshView view = network.Snapshot(DateTimeOffset.UtcNow, health.IsDown);
 
-        long started = Stopwatch.GetTimestamp();
-        SpanningTree tree = algorithm(view.Graph, MeshRadio.GatewayId, health.IsDown);
-        TimeSpan elapsed = Stopwatch.GetElapsedTime(started);
+        (SpanningTree tree, TimeSpan elapsed) = Timed(() => algorithm(view.Graph, MeshRadio.GatewayId, health.IsDown));
 
         return Results.Ok(SpanningTreeDto.FromTree(tree, elapsed));
     }
