@@ -212,9 +212,10 @@ The separate Data Structures report goes into more depth. This is the short vers
 ### AVL tree for historical telemetry
 
 **Role.** Each node gets its own `AvlTree<TelemetryKey, double>` keyed on timestamp plus a sequence
-number, so two readings at the same tick are both kept. Telemetry always arrives in time order, which
-turns a plain BST into a linked list. The AVL tree rebalances after every insert, so it stays
-O(log n) tall.
+number, so two readings at the same tick are both kept. A plain BST's shape depends on the order the
+keys are inserted (Sedgewick and Wayne, n.d.), and when it becomes skewed its operations cost O(n)
+(GeeksforGeeks, 2026a). Telemetry always arrives in time order, which is exactly that case. An AVL
+tree rebalances after every insert, so its height is always O(log n) (GeeksforGeeks, 2026a).
 
 **Range query.** It walks down to the start of the window and then only visits nodes inside it:
 
@@ -236,10 +237,13 @@ if (belowTo)
 }
 ```
 
-That costs O(log n + k) for k results instead of O(n). The oldest reading is always the leftmost
-node, so keeping a day of history (86,400 readings per node) is just a delete-min.
+Because the height stays O(log n), a query for k readings costs O(log n + k) instead of the O(n) of
+scanning a list. The oldest reading is always the leftmost node, so keeping a day of history (86,400
+readings per node) is just a delete-min. The Benchmark panel on the Topology page runs the same query
+on the tree and on a list so the difference can be seen live.
 
-**How it scales** (same 10 minute window, 50 runs at each size, Debug build):
+**How it scales** (from `GET /api/history/benchmark`, same 10 minute window, 50 runs at each size,
+Debug build):
 
 | Readings | Tree height | Results | AVL | Nodes visited | List scan | Faster |
 |---|---|---|---|---|---|---|
@@ -254,10 +258,17 @@ still wins because it is so cache friendly.
 
 ### Weighted graph of the mesh
 
-**Role.** Vertices are the nodes and the gateway, edges are the radio links they report. The
-adjacency list is a dictionary of dictionaries, so adding or finding a link is O(1) and walking a
-node's neighbours is O(degree). Each link's cost is the expected number of transmissions from its
-signal strength:
+**Role.** Vertices are the nodes and the gateway, edges are the radio links they report. The graph
+is an adjacency list, which uses less space than an adjacency matrix for a sparse graph and makes a
+node's neighbours available directly (GeeksforGeeks, 2025a). Here it is a dictionary of
+dictionaries, so adding or finding a link is O(1) and walking a node's neighbours is O(degree).
+
+**Link cost.** The cost is based on the expected transmission count (ETX) metric. According to
+De Couto et al. (2005), ETX counts how many transmissions, including retransmissions, a packet needs
+to get across a link, and it finds better paths than minimum hop count because it avoids lossy
+links. Thread estimates link quality from the received signal strength (RSSI) in the same way
+(Silicon Labs, n.d.a), so Smart-X turns each link's RSSI into a delivery quality and uses its
+inverse as the cost:
 
 ```csharp
 double quality = (double)(rssiDbm - SensitivityDbm) / (StrongDbm - SensitivityDbm);
@@ -275,16 +286,22 @@ Links expire after 15 seconds without a report.
 
 | Algorithm | Used for | Time |
 |---|---|---|
-| BFS (`Queue<string>`) | everything reachable from the gateway or a node, hop counts, orphans, reroutes | O(V + E) |
-| Prim (binary heap) | the MST backbone, the least total radio energy that keeps everyone connected | O(E log E) |
-| Kruskal (union find) | independent check that Prim's total is right | O(E log E) |
-| Dijkstra (same heap) | each node's own cheapest route to the gateway | O(E log E) |
+| BFS (`Queue<string>`) | everything reachable from the gateway or a node, hop counts, orphans, reroutes | O(V + E) (GeeksforGeeks, 2026b) |
+| Prim (binary heap) | the MST backbone, the least total radio energy that keeps everyone connected | O((V + E) log V) (GeeksforGeeks, 2026e) |
+| Kruskal (union find) | independent check that Prim's total is right | O(E log E) (GeeksforGeeks, 2026d) |
+| Dijkstra (same heap) | each node's own cheapest route to the gateway | O((V + E) log V) (GeeksforGeeks, 2026c) |
 
-All of them skip down nodes, which is what makes the routes heal. The MST minimises the whole
-network's cost, so a far node can end up on a long chain (12 hops, cost 300.35 for `SOIL-Z3S2-01`).
-Dijkstra minimises each node's own route (5 hops, cost 173.96 for the same node). The tracer shows
-both: the MST is the power efficient backbone the brief asks for, and Dijkstra is closer to how
-Zigbee and Thread routers pick a next hop.
+All of them skip down nodes, which is what makes the routes heal. Zigbee works the same way: when a
+route breaks, route discovery runs again without the damaged node, which gives a different route
+(Silicon Labs, n.d.b).
+
+An MST has no source or destination, it only connects every node for the least total cost
+(GeeksforGeeks, 2025b). That means a far node can end up on a long chain (12 hops, cost 300.35 for
+`SOIL-Z3S2-01`), while Dijkstra minimises each node's own route (5 hops, cost 173.96 for the same
+node). The tracer shows both: the MST is the power efficient backbone the brief asks for, and
+Dijkstra is closer to real mesh protocols, where a path's cost is the sum of its link costs and the
+cheapest links are chosen (Silicon Labs, n.d.b), and each router keeps a next hop for every
+destination (Silicon Labs, n.d.a).
 
 ---
 
@@ -342,3 +359,29 @@ dotnet user-secrets set "Attachments:Key" "<base64 32 bytes>" --project SmartX.A
 ```
 
 In Docker, put `ATTACHMENTS_KEY=<base64 32 bytes>` in a `.env` file next to `docker-compose.yml`.
+
+---
+
+## References
+
+De Couto, D.S.J., Aguayo, D., Bicket, J. and Morris, R. 2005. A high-throughput path metric for multi-hop wireless routing, Wireless Networks, 11, pp. 419-434. [Journal]. Available at: https://ocw.cs.pub.ro/courses/_media/isrm/articole/etx_2003.pdf [Accessed 12 November 2026].
+
+GeeksforGeeks. 2025a. Adjacency list representation, GeeksforGeeks, 23 July 2025. [Blog]. Available at: https://www.geeksforgeeks.org/dsa/adjacency-list-meaning-definition-in-dsa/ [Accessed 12 November 2026].
+
+GeeksforGeeks. 2025b. Difference between minimum spanning tree and shortest path, GeeksforGeeks, 23 July 2025. [Blog]. Available at: https://www.geeksforgeeks.org/difference-between-minimum-spanning-tree-and-shortest-path/ [Accessed 12 November 2026].
+
+GeeksforGeeks. 2026a. AVL tree data structure, GeeksforGeeks, 2 November 2026. [Blog]. Available at: https://www.geeksforgeeks.org/dsa/introduction-to-avl-tree/ [Accessed 12 November 2026].
+
+GeeksforGeeks. 2026b. Breadth first search or BFS for a graph, GeeksforGeeks, 17 October 2026. [Blog]. Available at: https://www.geeksforgeeks.org/dsa/breadth-first-search-or-bfs-for-a-graph/ [Accessed 12 November 2026].
+
+GeeksforGeeks. 2026c. Dijkstra's algorithm, GeeksforGeeks, 25 October 2026. [Blog]. Available at: https://www.geeksforgeeks.org/dsa/dijkstras-shortest-path-algorithm-greedy-algo-7/ [Accessed 12 November 2026].
+
+GeeksforGeeks. 2026d. Kruskal's minimum spanning tree (MST) algorithm, GeeksforGeeks, 10 July 2026. [Blog]. Available at: https://www.geeksforgeeks.org/dsa/kruskals-minimum-spanning-tree-algorithm-greedy-algo-2/ [Accessed 12 November 2026].
+
+GeeksforGeeks. 2026e. Prim's algorithm for minimum spanning tree (MST), GeeksforGeeks, 2 November 2026. [Blog]. Available at: https://www.geeksforgeeks.org/dsa/prims-minimum-spanning-tree-mst-greedy-algo-5/ [Accessed 12 November 2026].
+
+Sedgewick, R. and Wayne, K. n.d. 3.2 Binary search trees, Algorithms 4th Edition. [Online]. Available at: https://algs4.cs.princeton.edu/32bst/ [Accessed 12 November 2026].
+
+Silicon Labs. n.d.a. Routing and network connectivity, Silicon Labs OpenThread Documentation. [Online]. Available at: https://docs.silabs.com/openthread/2.7.0/thread-fundamentals/05-routing-and-network-connectivity [Accessed 12 November 2026].
+
+Silicon Labs. n.d.b. Table routing, Silicon Labs Zigbee Documentation. [Online]. Available at: https://docs.silabs.com/zigbee/9.0.0/zigbee-concepts-network/table-routing [Accessed 12 November 2026].
